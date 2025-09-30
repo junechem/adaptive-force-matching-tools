@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help { 
+    print "\n=== pxyz_dropoff - Mark-Based Atom Filtering ===\n\n";
+    print "PURPOSE:\n";
+    print "  Removes atoms with mark values at or below a threshold. Creates clean\n";
+    print "  final selections by removing unselected or unwanted atoms.\n\n";
+    print "USAGE:\n";
+    print "  pxyz_dropoff val [file.pxyz]\n";
+    print "  pxyz_dropoff 0 < system.pxyz > clean.pxyz\n\n";
+    print "PARAMETERS:\n";
+    print "  val         - Threshold mark value (atoms with mark <= val are removed)\n";
+    print "  file.pxyz   - Input .pxyz file (optional, reads from stdin if not provided)\n\n";
+    print "INPUT:\n";
+    print "  - .pxyz format file (via stdin or file argument)\n\n";
+    print "OUTPUT:\n";
+    print "  - Filtered .pxyz file written to stdout\n";
+    print "  - Includes updated atom count and preserved box dimensions\n";
+    print "  - Complete .pxyz format suitable for further processing\n\n";
+    print "DETAILS:\n";
+    print "  - Keeps only atoms with mark > val\n";
+    print "  - Automatically updates the atom count in the output header\n";
+    print "  - Preserves box dimensions and .pxyz format structure\n";
+    print "  - Commonly used to remove unselected atoms (mark -9)\n";
+    print "  - Essential for creating final QM/MM selections\n\n";
+    print "EXAMPLES:\n";
+    print "  pxyz_dropoff -9 system.pxyz > selected.pxyz      # Remove unselected atoms\n";
+    print "  pxyz_dropoff 0 temp.pxyz > final.pxyz            # Remove temporary marks\n";
+    print "  pxyz_dropoff 2 system.pxyz > qm_only.pxyz        # Keep only QM atoms (3,4)\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  Final step in QM/MM selection after all marking is complete:\n";
+    print "  pxyz_dropoff 0 marked_system.pxyz | pxyz_sort > final.pxyz\n\n";
+}
+
+$bnk="   ";
+
+$val=$ARGV[0];shift; #dropoff the atom if the mark value is no more than $val
+
+$_=<>; # read in atom number
+$_=<>; $buf=$buf.$_;
+
+$natms=0;
+while(<>)
+{
+($nam,$xxx,$yyy,$zzz,$mol,$mar)=split;
+if ($mar > $val) {
+$natms++;
+$buf=$buf.$_;
+}
+}
+
+print $natms."\n".$buf;
+
+
+
+

@@ -1,0 +1,93 @@
+#!/usr/bin/perl
+#This routine intends to update the file name for geometry or lattice in Molpro input file.
+#The records in the same line are separated by comma.
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== molpro_replace_field - Molpro Field Replacement Utility ===\n\n";
+  print "PURPOSE:\n";
+  print "  Updates comma-separated fields in Molpro input files by replacing matching fields.\n";
+  print "  Commonly used to update filenames, parameters, or options in Molpro directives.\n\n";
+  print "USAGE:\n";
+  print "  molpro_replace_field keyword newvalue [molpro.inp]\n";
+  print "  molpro_replace_field \"INFILE\" \"new_lattice.inp\" template.inp > updated.inp\n\n";
+  print "PARAMETERS:\n";
+  print "  keyword     - Text pattern to search for in comma-separated lines\n";
+  print "  newvalue    - Replacement value for matching field\n";
+  print "  molpro.inp  - Molpro input file (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - Molpro input file with comma-separated directive lines\n";
+  print "  - Lines containing the keyword will be processed\n\n";
+  print "OUTPUT:\n";
+  print "  - Modified Molpro input written to stdout with updated fields\n";
+  print "  - Only lines containing the keyword are modified\n\n";
+  print "DETAILS:\n";
+  print "  - Processes lines containing the keyword\n";
+  print "  - Splits lines by commas, replaces matching fields\n";
+  print "  - Reconstructs lines with proper comma separation\n";
+  print "  - Preserves all other lines unchanged\n";
+  print "  - Case-sensitive keyword matching\n";
+  print "  - Useful for updating external file references\n\n";
+  print "COMMON MOLPRO DIRECTIVES:\n";
+  print "  LATTICE, INFILE=charges.inp\n";
+  print "  GEOMETRY, FILE=coords.xyz\n";
+  print "  BASIS, FILE=basis.mol\n";
+  print "  GDIRECT, SAVE=2140.2\n\n";
+  print "FIELD REPLACEMENT LOGIC:\n";
+  print "  - Searches for fields containing the keyword\n";
+  print "  - Replaces entire field with newvalue\n";
+  print "  - Example: \"INFILE=old.inp\" becomes \"new_lattice.inp\"\n";
+  print "  - Multiple fields can be replaced in same line\n\n";
+  print "EXAMPLES:\n";
+  print "  molpro_replace_field \"INFILE\" \"new_charges.inp\" main.inp > updated.inp\n";
+  print "  molpro_replace_field \"SAVE\" \"2140.3\" template.inp > final.inp\n";
+  print "  molpro_replace_field \"FILE\" \"geometry.xyz\" < input.inp > output.inp\n\n";
+  print "TYPICAL WORKFLOW:\n";
+  print "  1. Generate geometry: pxyz_molpro_upd_geom template.inp nucinfo qm.pxyz > main.inp\n";
+  print "  2. Generate lattice: pxyz_molpro_gen_lattice chginfo mm.pxyz > charges.inp\n";
+  print "  3. Update reference: molpro_replace_field \"INFILE\" \"charges.inp\" main.inp > final.inp\n\n";
+  print "PROCESSING EXAMPLE:\n";
+  print "  Input line:  \"LATTICE, INFILE=template.inp, TYPE=POINT\"\n";
+  print "  Command:     molpro_replace_field \"INFILE\" \"real_charges.inp\"\n";
+  print "  Output line: \"LATTICE, real_charges.inp, TYPE=POINT\"\n\n";
+  print "FIELD MATCHING:\n";
+  print "  - Searches for keyword anywhere in field\n";
+  print "  - \"INFILE=old.inp\" matches keyword \"INFILE\"\n";
+  print "  - \"FILE\" matches keyword \"FILE\"\n";
+  print "  - Entire matching field gets replaced\n\n";
+  print "LIMITATIONS:\n";
+  print "  - Only processes comma-separated lines\n";
+  print "  - Case-sensitive keyword matching\n";
+  print "  - Replaces entire field, not partial content\n";
+  print "  - No regex support in keyword matching\n\n";
+  print "SEE ALSO:\n";
+  print "  pxyz_molpro_gen_lattice - Generate charge lattice files for Molpro\n";
+  print "  pxyz_molpro_upd_geom    - Update geometry section in Molpro files\n";
+  print "  pqs_replace_field       - Similar utility for space-separated PQS files\n\n";
+}
+
+
+$comma=",";
+$keyword=$ARGV[0];shift;
+$val=$ARGV[0];shift;
+$buf="";
+while (<>)
+{
+if ($_ =~ /$keyword/ )
+{
+@record=split(/,/,$_);
+$nrec=@record;
+for ($i=0;$i<$nrec;$i++){
+if ($record[$i] =~ /$keyword/){ $record[$i]=$val;}
+if ($i == 0) {$buf= $record[$i];}
+else { $buf.=$comma.$record[$i];}
+}
+print $buf."\n";}
+else {print;}
+}
+
+

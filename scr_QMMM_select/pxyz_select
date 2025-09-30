@@ -1,0 +1,58 @@
+#!/usr/bin/perl
+#This routine select and count the atoms with a mark $valm.
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== pxyz_select - Single Mark Value Selection ===\n\n";
+    print "PURPOSE:\n";
+    print "  Extracts atoms with a specific mark value from a .pxyz file.\n";
+    print "  Outputs selected atoms in headerless format for further processing.\n\n";
+    print "USAGE:\n";
+    print "  pxyz_select val [file.pxyz]\n";
+    print "  pxyz_select 4 < system.pxyz > qm_atoms.xyz\n\n";
+    print "PARAMETERS:\n";
+    print "  val         - Mark value to select\n";
+    print "  file.pxyz   - Input .pxyz file (optional, reads from stdin if not provided)\n\n";
+    print "INPUT:\n";
+    print "  - .pxyz format file (via stdin or file argument)\n\n";
+    print "OUTPUT:\n";
+    print "  - Selected atoms to stdout (WITHOUT header lines)\n";
+    print "  - Format: atomname x y z molname mark\n";
+    print "  - Statistics written to stderr (atom and molecule counts)\n\n";
+    print "DETAILS:\n";
+    print "  - Outputs only atoms matching the specified mark value\n";
+    print "  - Does NOT include atom count or box dimension lines\n";
+    print "  - Counts and reports unique molecules and total atoms to stderr\n";
+    print "  - Output can be used with other tools or for analysis\n";
+    print "  - Commonly used to extract QM regions, MM regions, or specific selections\n\n";
+    print "EXAMPLES:\n";
+    print "  pxyz_select 4 system.pxyz > qm_center.xyz        # Extract QM center molecule\n";
+    print "  pxyz_select 3 system.pxyz | wc -l               # Count QM fitting atoms\n";
+    print "  pxyz_select 1 system.pxyz > mm_region.xyz       # Extract MM region\n\n";
+    print "SEE ALSO:\n";
+    print "  pxyz_select_n  - Select multiple mark values in one operation\n\n";
+}
+
+
+$valm=$ARGV[0];shift;
+
+$bnk="   ";
+$_=<>;$_=<>;
+
+$atmcnt=0; $molcnt=0;
+$molname="Pleasedonotusethisnameforyourmolecule";
+
+while(<>) {
+($nam,$xxx,$yyy,$zzz,$mol,$val)=split;
+if ($val==$valm){
+$atmcnt++;
+print $nam.$bnk.$xxx.$bnk.$yyy.$bnk.$zzz.$bnk.$mol.$bnk.$val."\n";
+if ($molname ne $mol) {
+$molcnt++; $molname=$mol;}
+}
+}
+
+print STDERR "Number of atoms $atmcnt, Number of molecules $molcnt.\n";

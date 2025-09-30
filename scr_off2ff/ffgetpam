@@ -1,0 +1,87 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== ffgetpam - FF Parameter Extractor ===\n\n";
+    print "PURPOSE:\n";
+    print "  Extract specific parameters from FF file sections at given positions.\n";
+    print "  Utility for retrieving individual parameter values from CRYOFF force field files.\n\n";
+    print "USAGE:\n";
+    print "  ffgetpam section_name record_number parameter_column file.ff\n";
+    print "  ffgetpam COU 5 4 system.ff\n\n";
+    print "PARAMETERS:\n";
+    print "  section_name     - FF section name (COU, EXP, SRD, etc.)\n";
+    print "  record_number    - Record number within section (1-based)\n";
+    print "  parameter_column - Column number of desired parameter (1-based)\n";
+    print "  file.ff          - Input FF file\n\n";
+    print "INPUT:\n";
+    print "  - FF file with sectioned parameter format\n";
+    print "  - Sections marked with [section_name]\n";
+    print "  - Parameters in columnar format\n\n";
+    print "OUTPUT:\n";
+    print "  - Single parameter value to stdout\n";
+    print "  - Warning if parameter may not be fixed\n\n";
+    print "DETAILS:\n";
+    print "  - Searches for [section_name] in FF file (case-insensitive)\n";
+    print "  - Skips to specified record number within section\n";
+    print "  - Extracts parameter from specified column\n";
+    print "  - Handles comment markers (#, ;, !) at end of lines\n";
+    print "  - Warns if 'fix' keyword not found in line\n";
+    print "  - Returns parameter after comment removal\n\n";
+    print "FF SECTION FORMAT:\n";
+    print "  [ COU ]\n";
+    print "  ATM1  ATM2   0.123456   1.0  # fix\n";
+    print "  ATM3  ATM4  -0.654321   1.0  ; fit\n";
+    print "  ATM5  ATM6   0.987654   1.0  ! fix\n\n";
+    print "EXAMPLES:\n";
+    print "  ffgetpam COU 1 3 system.ff      # Get 1st COU record, column 3\n";
+    print "  ffgetpam EXP 5 4 params.ff      # Get 5th EXP record, column 4\n";
+    print "  ffgetpam SRD 10 2 forces.ff     # Get 10th SRD record, column 2\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Identify section: Locate parameter section in FF file\n";
+    print "  2. Count records: Determine record number of interest\n";
+    print "  3. Extract parameter: ffgetpam section record column file.ff\n";
+    print "  4. Use value: Apply parameter in calculations or comparisons\n\n";
+    print "PARAMETER VALIDATION:\n";
+    print "  - Checks if parameter contains alphabetic characters\n";
+    print "  - Warns if 'fix' keyword not found in line\n";
+    print "  - Helps identify potentially unfixed parameters\n\n";
+    print "SEE ALSO:\n";
+    print "  ffupdbynum         - Update FF parameters by position\n";
+    print "  ffaddremtermbynam  - Add/remove FF terms by name\n";
+    print "  off2ff             - Convert OFF to FF format\n\n";
+}
+use List::Util qw[min max];
+$bnk="  ";
+ 
+$secname=$ARGV[0];shift;
+$recnum=$ARGV[0];shift;
+$parcol=$ARGV[0];shift;
+$filename=$ARGV[0];shift;
+
+open (FIL,$filename) || die "can not open file $filename"."\n";
+
+while(<FIL>)
+{
+if (/\[\s*$secname\s*\]/i) {
+#if (/$secname/) {
+  for ($i=0;$i<$recnum;$i++)
+  {
+  $_=<FIL>;chomp; 
+  }
+  chomp;
+  $ind1=rindex($_,"#"); $ind2=rindex($_,";"); $ind3=rindex($_,"!");
+  $ind=max($ind1,$ind2,$ind3);
+  $_ = substr $_,$ind+1;
+  $pam=(split)[$parcol-1];
+  if( $pam !~ /[a-zA-Z]/){  
+    warn "Warning: Maybe $pam is not a fix parameter.\n" unless (lc($_) =~ /fix/);}
+}
+
+}
+
+print "$pam\n";
+

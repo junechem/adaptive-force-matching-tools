@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+# This routine mark within molecules according atom list.
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== mark_within_list - List-Based Distance Selection ===\n\n";
+  print "PURPOSE:\n";
+  print "  Marks molecules within cutoff distance of a specified list of atoms.\n";
+  print "  Provides flexibility to select around non-contiguous atoms.\n\n";
+  print "USAGE:\n";
+  print "  mark_within_list rcut mark_val file.pxyz atom_id1 atom_id2 atom_id3 ...\n\n";
+  print "PARAMETERS:\n";
+  print "  rcut        - Cutoff distance in Angstroms\n";
+  print "  mark_val    - Mark value to assign to molecules within cutoff\n";
+  print "  file.pxyz   - Input .pxyz file (REQUIRED as argument)\n";
+  print "  atom_id*    - List of atom IDs (1-based indexing, space-separated)\n\n";
+  print "INPUT:\n";
+  print "  - .pxyz file specified as argument (NOT via stdin)\n";
+  print "  - Atom IDs must be numeric and use 1-based indexing\n\n";
+  print "OUTPUT:\n";
+  print "  - **MODIFIES INPUT FILE DIRECTLY** - use with caution!\n\n";
+  print "DETAILS:\n";
+  print "  - Applies mark_within for each atom ID in the provided list\n";
+  print "  - Validates that all provided IDs are numeric\n";
+  print "  - Uses 1-based indexing for atom IDs\n";
+  print "  - **WARNING**: This script modifies the input file in-place\n";
+  print "  - Always work with backup copies of important data\n";
+  print "  - Useful for marking around specific, non-contiguous atoms\n\n";
+  print "EXAMPLES:\n";
+  print "  cp system.pxyz backup.pxyz\n";
+  print "  mark_within_list 3.5 2 system.pxyz 1 25 47 83    # Mark around specific atoms\n";
+  print "  mark_within_list 5.0 1 temp.pxyz 10 20 30        # MM region around atoms 10,20,30\n\n";
+  print "SEE ALSO:\n";
+  print "  mark_within       - Single atom distance selection\n";
+  print "  mark_within_range - Selection from atom range\n\n";
+}
+
+
+$rcu=$ARGV[0];shift; #cutoff
+$val=$ARGV[0];shift; #mark value
+$filename=$ARGV[0];shift;
+
+foreach $i (@ARGV) 
+{
+die "please supply atom list\n" unless ( $i eq $i+0);
+$cmd="mark_within $i $rcu $val $filename > $filename._$$; mv $filename._$$ $filename";
+#print $cmd."\n";
+system("$cmd");
+}

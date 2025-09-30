@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== gms_extract_grad - GAMESS Gradient Extraction ===\n\n";
+    print "PURPOSE:\n";
+    print "  Extract gradients from GAMESS output files.\n";
+    print "  Essential for preparing GAMESS QM gradients for integration into .ref files.\n\n";
+    print "USAGE:\n";
+    print "  gms_extract_grad gamess_output\n";
+    print "  gms_extract_grad molecule.out > gradients.dat\n\n";
+    print "PARAMETERS:\n";
+    print "  gamess_output - GAMESS output files with gradient calculations\n\n";
+    print "INPUT:\n";
+    print "  - GAMESS output files with gradient calculations\n";
+    print "  - Must contain 'UNITS ARE HARTREE' section with gradient data\n\n";
+    print "OUTPUT:\n";
+    print "  - Gradients in Hartree/Bohr units written to stdout\n";
+    print "  - Format: gx gy gz (one line per atom)\n\n";
+    print "DETAILS:\n";
+    print "  - Searches for 'UNITS ARE HARTREE' section in GAMESS output\n";
+    print "  - Extracts x, y, z gradient components for each atom\n";
+    print "  - Outputs gradients in atomic units (Hartree/Bohr)\n";
+    print "  - Determines atom count from 'TOTAL NUMBER OF ATOMS' line\n";
+    print "  - Use with ref_upd_gms_grad for integration into AFMTools workflow\n\n";
+    print "EXAMPLES:\n";
+    print "  gms_extract_grad molecule.out > gradients.dat\n";
+    print "  gms_extract_grad qm_calc.out | ref_upd_gms_grad /dev/stdin system.ref > updated.ref\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Run GAMESS calculation: gamess < input.inp > output.out\n";
+    print "  2. Extract gradients: gms_extract_grad output.out > gradients.dat\n";
+    print "  3. Add to .ref file: ref_upd_gms_grad gradients.dat system.ref > final.ref\n\n";
+    print "SEE ALSO:\n";
+    print "  ref_upd_gms_grad - Add GAMESS gradients to .ref files\n\n";
+}
+
+
+$bnk='       ';
+while(<>)
+{
+   if(/TOTAL NUMBER OF ATOMS/){chomp; $natms=(split)[5];}
+   if(/UNITS ARE HARTREE/){
+    for($i=0;$i<$natms;$i++){
+      $_=<>;chomp;($ind,$nam,$gx,$gy,$gz)=split;
+      print $gx.$bnk.$gy.$bnk.$gz."\n";
+    }
+  }
+}
+

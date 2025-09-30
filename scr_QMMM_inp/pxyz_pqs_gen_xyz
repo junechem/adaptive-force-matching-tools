@@ -1,0 +1,94 @@
+#!/usr/bin/perl
+#This routine generate xyz file for pqs. The unit is atomic unit.
+#A special character is added after atom name according the name translation file.
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== pxyz_pqs_gen_xyz - PQS XYZ Coordinate Generator ===\n\n";
+  print "PURPOSE:\n";
+  print "  Generates XYZ coordinate files for PQS calculations from .pxyz files.\n";
+  print "  Creates standalone coordinate files for QM calculations.\n\n";
+  print "USAGE:\n";
+  print "  pxyz_pqs_gen_xyz name_translation [file.pxyz]\n";
+  print "  pxyz_pqs_gen_xyz pqs.nucinfo qm_system.pxyz > coords.xyz\n\n";
+  print "PARAMETERS:\n";
+  print "  name_translation  - Atom name translation file (can map to special characters)\n";
+  print "  file.pxyz         - Coordinate data (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - Name translation file format: 'atomname element_symbol'\n";
+  print "  - .pxyz format: 'atomname x y z molname mark'\n\n";
+  print "OUTPUT:\n";
+  print "  - PQS-formatted XYZ coordinates written to stdout\n";
+  print "  - Uses atomic units (coordinates assumed already in atomic units)\n\n";
+  print "DETAILS:\n";
+  print "  - Creates standalone coordinate file (not full input)\n";
+  print "  - Supports special character suffixes in QM names (e.g., \"H\@\", \"C\@\")\n";
+  print "  - Format: 'atomname x y z' (10-character width for names)\n";
+  print "  - Used with PQS 'GEOM=pqs FILE=filename' directive\n";
+  print "  - Precision: 15.5f format for coordinates\n";
+  print "  - Skips first two lines of .pxyz file (atom count and comment)\n\n";
+  print "COORDINATE UNITS:\n";
+  print "  - Input coordinates assumed to be in atomic units (Bohr)\n";
+  print "  - No unit conversion performed\n";
+  print "  - Ensure .pxyz coordinates are in proper units before processing\n";
+  print "  - Standard conversion: 1 Angstrom = 1.889726 Bohr\n\n";
+  print "TRANSLATION FILE FORMAT:\n";
+  print "  # Comments start with #\n";
+  print "  H1          H\n";
+  print "  CA          C\n";
+  print "  OW          O\@        # special character suffix\n";
+  print "  MW          M\n\n";
+  print "PQS COORDINATE FORMAT:\n";
+  print "         H      31.26000     29.05000     54.94000\n";
+  print "         C      30.78000     28.03000     54.67000\n";
+  print "        O\@      29.95000     27.21000     55.12000\n\n";
+  print "EXAMPLES:\n";
+  print "  pxyz_pqs_gen_xyz pqs.nucinfo qm_system.pxyz > coords.xyz\n";
+  print "  pxyz_pqs_gen_xyz nucinfo < qm_region.pxyz > coordinates.dat\n\n";
+  print "PQS INTEGRATION:\n";
+  print "  Main PQS input file references generated coordinates:\n";
+  print "  GEOM=pqs FILE=coords.xyz\n";
+  print "  \n";
+  print "  Example PQS input section:\n";
+  print "  \$molecule\n";
+  print "  GEOM=pqs FILE=coordinates.dat\n";
+  print "  \$end\n\n";
+  print "SPECIAL CHARACTERS:\n";
+  print "  - PQS supports special character suffixes on atom names\n";
+  print "  - Common examples: H\@, C\@, O\@ for different atom types\n";
+  print "  - Use translation file to map atom names to special forms\n";
+  print "  - Useful for distinguishing chemically different atoms\n\n";
+  print "WORKFLOW:\n";
+  print "  1. Generate coordinates: pxyz_pqs_gen_xyz nucinfo qm.pxyz > coords.xyz\n";
+  print "  2. Generate charges: pxyz_pqs_gen_pntq chginfo mm.pxyz > charges.pntq\n";
+  print "  3. Update main input: pqs_replace_field \"FILE\" \"coords.xyz\" template.inp > final.inp\n\n";
+  print "SEE ALSO:\n";
+  print "  pxyz_pqs_gen_pntq - Generate point charge files for PQS QM/MM\n";
+  print "  pqs_replace_field - Update space-separated fields in PQS files\n\n";
+}
+
+
+$nametrans=$ARGV[0];shift; #This is name translation file
+die "ERROR: NameTranslation file: $nametrans expected!\n" unless -e $nametrans;
+
+open (nameinfo,"<", $nametrans); 
+while (<nameinfo>){
+chomp;
+if ((substr $_, 0, 1) eq "#") {next;}
+($name,$QMnam)=split;
+$trans{$name} = $QMnam if $QMnam;
+}
+
+$_=<>;$_=<>;
+
+while(<>)
+{
+chomp;($nam,$xxx,$yyy,$zzz)=split;
+$nam=$trans{$nam} if $trans{$nam};
+printf ("%10s %15.5f %15.5f %15.5f\n", $nam,$xxx,$yyy,$zzz)
+}
+

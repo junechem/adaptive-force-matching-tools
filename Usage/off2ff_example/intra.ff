@@ -1,0 +1,273 @@
+[file] total.ref   intra.off
+[opt] lsq.sim dy=1E-8 dp=1E-8 maxit=2000
+[key] Intra norm=w print=debug
+
+[MolTyp]   UNK   4
+  [ atoms ]  17
+1   O0  O0
+2   C1  C1
+3   C2  C2
+4   C2  C2
+5   C2  C2
+6   H0  H0
+7   H1  H1
+8   H1  H1
+9   H1  H1
+10  H1  H1
+11  H1  H1
+12  H1  H1
+13  H1  H1
+14  H1  H1
+15  H1  H1
+16  NetF    NetF
+17  Torq    Torq
+
+  [ Bonds ]    6
+;Bond Type: C1-C2
+        HAR 1   FIT 1.0 700
+        3 2
+
+;Bond Type: C1-H1
+        HAR 2   FIT 1.0 700
+        7 2
+        8 2
+
+;Bond Type: C1-O0
+        HAR 1   FIT 1.0 700
+        2 1
+
+;Bond Type: C2-C2
+        HAR 2   FIT 1.0 700
+        4 3
+        5 4
+
+;Bond Type: C2-H1
+        HAR 7   FIT 1.0 700
+        9 3
+        10 3
+        11 4
+        12 4
+        13 5
+        14 5
+        15 5
+
+;Bond Type: H0-O0
+        HAR 1   FIT 1.0 700
+        6 1
+
+
+  [ Angles]    10
+;Angle Type: C1-C2-C2
+         HAR   1 FIT 100  76
+                2 3 4
+
+;Angle Type: C1-C2-H1
+         HAR   2 FIT 100  76
+                2 3 9
+                2 3 10
+
+;Angle Type: C2-C2-H1
+         HAR   9 FIT 100  76
+                3 4 11
+                3 4 12
+                4 3 9
+                4 3 10
+                4 5 13
+                4 5 14
+                4 5 15
+                5 4 11
+                5 4 12
+
+;Angle Type: H1-C2-H1
+         HAR   5 FIT 100  76
+                9 3 10
+                11 4 12
+                13 5 14
+                13 5 15
+                14 5 15
+
+;Angle Type: C2-C1-H1
+         HAR   2 FIT 100  76
+                3 2 7
+                3 2 8
+
+;Angle Type: C2-C1-O0
+         HAR   1 FIT 100  76
+                3 2 1
+
+;Angle Type: H1-C1-H1
+         HAR   1 FIT 100  76
+                7 2 8
+
+;Angle Type: H1-C1-O0
+         HAR   2 FIT 100  76
+                7 2 1
+                8 2 1
+
+;Angle Type: C1-O0-H0
+         HAR   1 FIT 100  76
+                2 1 6
+
+;Angle Type: C2-C2-C2
+         HAR   1 FIT 100  76
+                3 4 5
+
+
+
+  [Dihedral]   3
+;Dihedral Type: O0-C1-C2-C2
+         NCO   1 FIT 2.5   3   0
+                1 2 3 4
+
+;Dihedral Type: C1-C2-C2-C2
+         NCO   1 FIT 2.5   3   0
+                2 3 4 5
+
+;Dihedral Type: C2-C1-O0-H0
+         NCO   1 FIT 2.5   3   0
+                3 2 1 6
+
+
+  [ Exc ]      39
+1 2
+1 3
+1 6
+1 7
+1 8
+4 15
+5 15
+13 15
+14 15
+2 3
+2 4
+2 6
+2 7
+2 8
+2 9
+2 10
+3 4
+3 5
+3 7
+3 8
+3 9
+3 10
+3 11
+3 12
+4 5
+4 9
+4 10
+4 11
+4 12
+4 13
+4 14
+5 11
+5 12
+5 13
+5 14
+7 8
+9 10
+11 12
+13 14
+
+
+
+[MolTyp]   UNM   4
+  [ atoms ]  15
+1   O0M  O0M
+2   C1M  C1M
+3   C2M  C2M
+4   C3M  C3M
+5   C4M  C4M
+6   H0M  H0M
+7   H1M  H1M
+8   H1M  H1M
+9   H1M  H1M
+10  H1M  H1M
+11  H1M  H1M
+12  H1M  H1M
+13  H1M  H1M
+14  H1M  H1M
+15  H1M  H1M
+
+  [ Bonds ]    0
+  [ Angles]    0
+  [Dihedral]   0
+  [ Exc ]      0
+
+
+[ COU ]    40
+  H0   H0   fix   0.2159832676
+  C2    H0    fix    0.0000000000
+  C2    C2    fix    0.0000000000
+  C1M    H0    fix    0.0527718130
+  C1M    C2    fix    0.0000000000
+  C1   H0   fix   0.1317723796
+  C1    C2    fix    0.0000000000
+  C1    C1M    fix    0.0146090570
+  C1   C1   fix   0.0803949316
+  H1M    H0    fix    0.0380305360
+  H1M    C2    fix    0.0000000000
+  H1M    C1    fix    0.0238922380
+  C2M    H0    fix    -0.0855268130
+  C2M    C2    fix    0.0000000000
+  C2M    C1    fix    -0.0519185770
+  O0M    H0    fix    -0.3709802700
+  O0M    C2    fix    0.0000000000
+  O0M    C1    fix    -0.1627443000
+  O0   H0   fix   -0.3477556472
+  O0    C2    fix    0.0000000000
+  O0    C1M    fix    -0.0673856610
+  O0   C1   fix   -0.2121673112
+  O0    H1M    fix    -0.0620276850
+  O0    C2M    fix    0.1374090100
+  O0    O0M    fix    0.5337258900
+  O0   O0   fix   0.5599229584
+  H0M    H0    fix    0.2306621800
+  H0M    C2    fix    0.0000000000
+  H0M    C1    fix    0.0839724280
+  H0M    O0    fix    -0.3146350800
+  H1    H0    fix    0.0000000000
+  H1    C2    fix    0.0000000000
+  H1    C1M    fix    0.0000000000
+  H1    C1    fix    0.0000000000
+  H1    H1M    fix    0.0000000000
+  H1    C2M    fix    0.0000000000
+  H1    O0M    fix    0.0000000000
+  H1    O0    fix    0.0000000000
+  H1    H0M    fix    0.0000000000
+  H1    H1    fix    0.0000000000
+
+
+
+[ EXP ]    12
+  H1    H1    fix    658.981    2.978
+  H0    H1    fix    315.945    2.744
+  H0    H0    fix    891.476    3.257
+  C2    H1    fix    41190.360    4.250
+  C2    H0    fix    2.128    2.340
+  C1    H1    fix    28274.060    4.238
+  C1    H0    fix    4268.638    3.597
+  O0    H1    fix    91569.955    5.124
+  O0    H0    fix    4056.008    4.775
+  O0    C2    fix    841761.500    4.398
+  O0    C1    fix    10847.180    3.116
+  O0    O0    fix    208599.950    4.120
+
+
+    
+
+
+[ SRD ]    9
+  H1    H1    fix    -114.724    -6.000    1.670
+  H0    H1    fix    -91.377    -6.000    1.670
+  H0    H0    fix    -143.991    -6.000    1.670
+  C2    C2    fix    -468.363    -6.000    2.044
+  C1    C2    fix    -455.932    -6.000    2.044
+  C1    C1    fix    -367.272    -6.000    2.044
+  C2    O0    fix    -611.419    -6.000    1.997
+  C1    O0    fix    -666.182    -6.000    1.997
+  O0    O0    fix    -98.813    -6.000    1.949
+
+
+
+ 

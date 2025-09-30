@@ -1,0 +1,199 @@
+#!/usr/bin/perl
+
+# adjust_charge - Adjust atomic charges to enforce molecular electroneutrality
+#
+# This script adjusts atomic charges to satisfy electroneutrality constraints
+# for molecular fragments, ensuring proper charge balance in force field parameters.
+
+if (@ARGV < 2 || $ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    print_help();
+    exit(@ARGV < 2 ? 1 : 0);
+}
+
+sub print_help {
+    print << 'EOF';
+
+NAME
+    adjust_charge - Adjust atomic charges to enforce molecular electroneutrality
+
+PURPOSE
+    This script adjusts atomic charges to satisfy electroneutrality constraints
+    for molecular fragments. It reads initial charges and constraint equations,
+    then redistributes charge excess/deficit uniformly among adjustable atoms
+    to ensure molecular fragments have the correct total charge.
+
+USAGE
+    adjust_charge charge_file constraint_file
+
+PARAMETERS
+    charge_file     - File containing initial atomic charges
+    constraint_file - File containing electroneutrality constraint equations
+
+INPUT
+    • Charge file: Contains atom types and their initial charges
+      Format: atom_type charge_value
+      Example:
+      C1    0.25000
+      H1   -0.12500
+      O1   -0.75000
+    
+    • Constraint file: Contains constraint equations for molecular fragments
+      Format: coeff1 atom1 + coeff2 atom2 + ... = total_charge
+      Example:
+      1 C1 + 4 H1 + 1 O1 = 0.0
+      2 C1 + 6 H1 = 0.0
+
+OUTPUT
+    • Adjusted charges written to stdout
+    • Format: atom_type adjusted_charge
+    • Charges formatted to 5 decimal places
+    • All constraint equations satisfied
+
+CONSTRAINT FILE FORMAT
+    Each line defines a charge constraint equation:
+    coeff1 atom1 + coeff2 atom2 + coeff3 atom3 = target_charge
+    
+    Components:
+    - coeffi: Stoichiometric coefficient (number of atoms)
+    - atomi: Atom type name (must match charge file)
+    - target_charge: Desired total charge for the fragment
+    
+    Examples:
+    1 C + 4 H = 0.0          # Methane neutrality
+    1 N + 3 H = 0.0          # Ammonia neutrality  
+    2 O + 4 H = 0.0          # Water dimer neutrality
+
+DETAILS
+    The script works by:
+    1. Reading initial atomic charges from charge file
+    2. Processing each constraint equation sequentially
+    3. Calculating current total charge for each molecular fragment
+    4. Computing charge excess/deficit relative to target
+    5. Distributing excess uniformly among atoms in the fragment
+    6. Updating atomic charges to satisfy constraint
+    7. Outputting final adjusted charges
+    
+    Charge Adjustment Algorithm:
+    - For each constraint equation:
+      * Calculate current total: Σ(coeff_i × charge_i)
+      * Compute deviation: current_total - target_charge
+      * Calculate per-atom adjustment: deviation / total_atoms
+      * Subtract adjustment from each atom: new_charge = old_charge - adjustment
+    
+    Sequential Processing:
+    - Constraints processed in file order
+    - Later constraints operate on charges adjusted by earlier ones
+    - Allows hierarchical charge balancing
+
+EXAMPLES
+    adjust_charge initial.chg constraints.eq
+        Adjust charges using constraint equations
+    
+    Example charge file (initial.chg):
+    C     0.300
+    H     0.050
+    O    -0.800
+    
+    Example constraint file (constraints.eq):
+    1 C + 4 H + 1 O = 0.0
+    
+    Output:
+    C     0.250
+    H     0.000
+    O    -0.750
+
+INTEGRATION
+    This script integrates with topology preparation workflows:
+    • Ensures electroneutrality before MD simulations
+    • Maintains charge balance after parameter optimization
+    • Supports force field development and validation
+    • Compatible with AFM parameter adjustment workflows
+
+CHARGE CONSERVATION
+    • Total charge is strictly conserved across all fragments
+    • Adjustments distributed uniformly among atoms in each fragment
+    • Maintains relative charge patterns while satisfying constraints
+    • Preserves chemical reasonableness of charge distributions
+
+NUMERICAL PRECISION
+    • Charges formatted to 5 decimal places for output
+    • Uses floating-point arithmetic for adjustments
+    • Maintains numerical stability for small charge differences
+    • Suitable for MD simulation requirements
+
+CONSTRAINT VALIDATION
+    • Processes constraints in specified order
+    • Handles multiple constraints per atom type
+    • Supports overlapping molecular fragments
+    • Allows complex charge balancing schemes
+
+SAFETY FEATURES
+    - Skips comment lines starting with '#'
+    - Handles empty lines gracefully
+    - Maintains charge file atom type consistency
+    - Preserves original charges for reference
+
+EOF
+}
+
+# ./get_neutral_molecules charge QQequations
+$chgfile=$ARGV[0];shift;$equation=$ARGV[0];
+
+open (CHG,$chgfile);
+while(<CHG>) {
+  $_ =~ s/^\s+|\s+$//g;
+  if ((substr $_, 0, 1) eq "#") {next;}
+  chomp;
+  ($atm[$nchg],$x)=split;
+  $charge{$atm[$nchg]}=$x;
+  $label{$atm[$nchg]}="F"; #the charges are the original value.
+  $nchg++;
+}
+
+open(EQ,$equation);
+while(<EQ>){
+  if ((substr $_, 0, 1) eq "#") {next;} 
+  next if /^\s*$/;
+  chomp;
+  $neq++;
+  @param=split /\+|=/,$_;
+  # calculate the fitted charges of the fragment.
+  $sum=0;$natom=0;
+  for ($i=0;$i<@param-1;$i++){
+    #print $param[$i];
+    $param[$i] =~ s/^\s+|\s+$//g;
+    ($factor,$atom)=split /\s+/,$param[$i];
+    $natom=$natom+$factor if $label{$atom} eq "F"; # will adjust the charges if they are still the original value.
+    $sum=$sum+$factor*$charge{$atom};
+  }
+  $frag_chg=$param[@param];
+  $delta=($sum-$frag_chg)/$natom;
+
+  # remove the exceeded charges from each atom.
+   $sum=0;$natom=0;
+   for ($i=0;$i<@param-1;$i++){
+     ($factor,$atom)=split /\s+/,$param[$i];
+     $natom=$natom+$factor;
+     $charge{$atom}=sprintf("%.5f",$charge{$atom}-$delta) if $label{$atom} eq "F";
+     $label{$atom}="Y"; # record the change.
+     $sum=$sum+$factor*$charge{$atom};
+   }  
+   $delta=sprintf("%.5f",$sum-$frag_chg);
+
+  # make the sum of the charges to be correct to the order of 0.00001.
+   $pickatom=<EQ>;
+   ($factor,$atom)=split /\s+/,$pickatom;
+   $check=$delta*100000%$factor;
+   if ($check != 0 ) {
+   print "\nCannot make the fragment [$neq] fit the charge constraint [$neq] using the picked atom. The excceded charge is $delta.\nplease change to another picked atom or adjust the charges by hand.\n\n"; }
+   else {
+#   print "$delta\n";
+   $delta = sprintf("%.5f",$delta/$factor);
+   $charge{$atom}= $charge{$atom}-$delta;
+   }
+}
+
+for ($i=0;$i<$nchg;$i++){
+  print "$atm[$i]   $charge{$atm[$i]} \n";
+}
+

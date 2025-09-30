@@ -1,0 +1,90 @@
+#!/usr/bin/perl
+#This routine updates the geometry section in gaussian input file.
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== pxyz_gaussian_upd_geom - Gaussian Geometry Update ===\n\n";
+  print "PURPOSE:\n";
+  print "  Updates the geometry section in Gaussian input files with coordinates from .pxyz files.\n";
+  print "  Essential for preparing Gaussian QM calculations from QM/MM selections.\n\n";
+  print "USAGE:\n";
+  print "  pxyz_gaussian_upd_geom gaussian.inp name_translation [file.pxyz]\n";
+  print "  pxyz_gaussian_upd_geom template.gjf gaussian.nucinfo system.pxyz > input.gjf\n\n";
+  print "PARAMETERS:\n";
+  print "  gaussian.inp      - Gaussian template file containing 'GEOMETRY' keyword\n";
+  print "  name_translation  - File mapping .pxyz atom names to standard element symbols\n";
+  print "  file.pxyz         - Coordinate data (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - Gaussian template file with 'GEOMETRY' placeholder keyword (case-insensitive)\n";
+  print "  - Name translation file format: 'atomname element_symbol'\n";
+  print "  - .pxyz format: 'atomname x y z molname mark'\n\n";
+  print "OUTPUT:\n";
+  print "  - Complete Gaussian input file written to stdout with updated geometry section\n";
+  print "  - Warning to stderr if atom names not found in translation file\n\n";
+  print "DETAILS:\n";
+  print "  - Searches for 'GEOMETRY' keyword (case-insensitive) in template\n";
+  print "  - Replaces placeholder geometry with actual coordinates from .pxyz file\n";
+  print "  - Translates atom names using name_translation file\n";
+  print "  - Format: 'element x y z' for each atom\n";
+  print "  - Preserves all other template content unchanged\n";
+  print "  - Continues until blank line after geometry section\n\n";
+  print "TRANSLATION FILE FORMAT:\n";
+  print "  # Comments start with #\n";
+  print "  H1          H\n";
+  print "  CA          C\n";
+  print "  OW          O\n\n";
+  print "EXAMPLES:\n";
+  print "  pxyz_gaussian_upd_geom template.gjf gaussian.nucinfo system.pxyz > input.gjf\n";
+  print "  pxyz_gaussian_upd_geom qm.gjf nucinfo < qm_region.pxyz > calculation.gjf\n\n";
+  print "TEMPLATE REQUIREMENT:\n";
+  print "  Template must contain 'GEOMETRY' keyword where coordinates should be inserted.\n";
+  print "  Example template section:\n";
+  print "  0 1\n";
+  print "  geometry\n";
+  print "  (coordinates will be inserted here)\n\n";
+  print "SEE ALSO:\n";
+  print "  pxyz_gaussian_upd_lattice - Update charge lattice for QM/MM calculations\n\n";
+}
+
+
+
+$templ=$ARGV[0];shift; #This is Gaussian input file
+$nametrans=$ARGV[0];shift; #This is name translation information
+
+die "ERROR: Molpro template file: $templ expected!\n" unless -e $templ;
+die "ERROR: NameTranslation file: $nametrans expected!\n" unless -e $nametrans;
+$shlwarn=0;
+
+open (nameinfo,"<", $nametrans);
+while (<nameinfo>){
+chomp;
+if ((substr $_, 0, 1) eq "#") {next;}
+($name,$QMnam)=split;
+$trans{$name} = $QMnam;
+}
+
+
+open (GAU,"<", $templ); 
+while (<GAU>) {
+ unless (/GEOMETRY/i) {print ;}
+ else {
+   $_=<>;chomp;$natms=$_;
+   $_=<>;
+   for($i=0;$i<$natms;$i++){
+     $_=<>; chomp; ($nam,$xxx,$yyy,$zzz,$mol,$mar)=split;
+     if ( $trans{$nam} ){
+     $tmpname=$trans{$nam} }
+     else {$tmpname = $nam;$shlwarn=1};
+     print "$tmpname   $xxx   $yyy   $zzz\n";
+   }
+   do {$_=<GAU>} until ( $_ =~ /^\s*$/);
+   print $_;
+ }
+} 
+
+print STDERR "Warning: At least one atom name is not in the NameTranslation file.\n" if ($shlwarn);
+

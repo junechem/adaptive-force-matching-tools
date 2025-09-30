@@ -1,0 +1,54 @@
+#!/usr/bin/perl
+# This routine mark within molecules of a range of atom  [$ido $ide].
+#
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== mark_within_range - Multi-Atom Distance Selection ===\n\n";
+  print "PURPOSE:\n";
+  print "  Marks molecules within cutoff distance of a range of atoms. Applies mark_within\n";
+  print "  iteratively for each atom in the specified range.\n\n";
+  print "USAGE:\n";
+  print "  mark_within_range atom_id_start atom_id_end rcut mark_val file.pxyz\n\n";
+  print "PARAMETERS:\n";
+  print "  atom_id_start  - First atom ID in range (1-based indexing)\n";
+  print "  atom_id_end    - Last atom ID in range (1-based indexing, inclusive)\n";
+  print "  rcut           - Cutoff distance in Angstroms\n";
+  print "  mark_val       - Mark value to assign to molecules within cutoff\n";
+  print "  file.pxyz      - Input .pxyz file (REQUIRED as argument)\n\n";
+  print "INPUT:\n";
+  print "  - .pxyz file specified as argument (NOT via stdin)\n\n";
+  print "OUTPUT:\n";
+  print "  - **MODIFIES INPUT FILE DIRECTLY** - use with caution!\n";
+  print "  - Prints executed commands to stdout for transparency\n\n";
+  print "DETAILS:\n";
+  print "  - Applies mark_within for each atom ID from start to end (inclusive)\n";
+  print "  - Uses 1-based indexing for atom IDs\n";
+  print "  - **WARNING**: This script modifies the input file in-place\n";
+  print "  - Always work with backup copies of important data\n";
+  print "  - Useful for marking around entire molecules or atom ranges\n\n";
+  print "EXAMPLES:\n";
+  print "  cp system.pxyz backup.pxyz\n";
+  print "  mark_within_range 1 25 4.0 2 system.pxyz    # Mark around first 25 atoms\n";
+  print "  mark_within_range 100 150 6.0 1 temp.pxyz   # MM region around atoms 100-150\n\n";
+  print "SEE ALSO:\n";
+  print "  mark_within      - Single atom distance selection\n";
+  print "  mark_within_list - Selection from explicit atom list\n\n";
+}
+
+$ido=$ARGV[0];shift; #This is the first atom id of the seleted molecule
+$ide=$ARGV[0];shift; #Last atom id of the selected molecule
+$rcu=$ARGV[0];shift; #cutoff
+$val=$ARGV[0];shift; #mark value
+$filename=$ARGV[0];
+
+for ($i=$ido;$i<$ide+1;$i++)
+{
+die "test\n" unless @ARGV > 0;
+$cmd="mark_within $i $rcu $val $filename > $filename._$$; mv $filename._$$ $filename";
+print $cmd."\n";
+system("$cmd");
+}

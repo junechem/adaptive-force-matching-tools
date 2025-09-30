@@ -1,0 +1,101 @@
+#!/usr/bin/perl
+#This routine updates the geometry section in Molpro input file.
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== pxyz_molpro_upd_geom - Molpro Geometry Update ===\n\n";
+  print "PURPOSE:\n";
+  print "  Updates the geometry section in Molpro input files with coordinates from .pxyz files.\n";
+  print "  Essential for preparing Molpro QM calculations from QM/MM selections.\n\n";
+  print "USAGE:\n";
+  print "  pxyz_molpro_upd_geom template.inp name_translation [file.pxyz]\n";
+  print "  pxyz_molpro_upd_geom template.inp molpro.nucinfo system.pxyz > calculation.inp\n\n";
+  print "PARAMETERS:\n";
+  print "  template.inp      - Molpro template file with 'GEOMETRY' block\n";
+  print "  name_translation  - File mapping .pxyz atom names to standard element symbols\n";
+  print "  file.pxyz         - Coordinate data (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - Molpro template file with 'GEOMETRY' placeholder keyword\n";
+  print "  - Name translation file format: 'atomname element_symbol'\n";
+  print "  - .pxyz format: 'atomname x y z molname mark'\n\n";
+  print "OUTPUT:\n";
+  print "  - Complete Molpro input file written to stdout with updated geometry\n";
+  print "  - Warning to stderr if atom names not found in translation file\n\n";
+  print "DETAILS:\n";
+  print "  - Searches for 'GEOMETRY' keyword in template\n";
+  print "  - Uses Molpro-specific format: 'element, x, y, z' (comma-separated)\n";
+  print "  - Adds atom count and comment line after GEOMETRY keyword\n";
+  print "  - Preserves geometry block structure with closing '}'\n";
+  print "  - Maintains all other Molpro input directives\n";
+  print "  - Translates atom names using name_translation file\n\n";
+  print "MOLPRO FORMAT:\n";
+  print "  GEOMETRY={\n";
+  print "  90\n";
+  print "  co2 b3lyp calculation\n";
+  print "  C,  31.26000000,  29.05000000,  54.94000000\n";
+  print "  O,  30.78000000,  28.03000000,  54.67000000\n";
+  print "  }\n\n";
+  print "TRANSLATION FILE FORMAT:\n";
+  print "  # Comments start with #\n";
+  print "  H1          H\n";
+  print "  CA          C\n";
+  print "  OW          O\n\n";
+  print "EXAMPLES:\n";
+  print "  pxyz_molpro_upd_geom template.inp molpro.nucinfo system.pxyz > main.inp\n";
+  print "  pxyz_molpro_upd_geom qm.inp nucinfo < qm_region.pxyz > calculation.inp\n\n";
+  print "TEMPLATE REQUIREMENT:\n";
+  print "  Template must contain 'GEOMETRY' keyword within curly braces block.\n";
+  print "  Example template section:\n";
+  print "  GEOMETRY={\n";
+  print "  (coordinates will be inserted here)\n";
+  print "  }\n\n";
+  print "SEE ALSO:\n";
+  print "  pxyz_molpro_gen_lattice - Generate charge lattice for QM/MM calculations\n";
+  print "  molpro_replace_field    - Update comma-separated fields in Molpro files\n\n";
+}
+
+
+
+$templ=$ARGV[0];shift; #This is Molpro file
+$nametrans=$ARGV[0];shift; #This is name translation information
+
+die "ERROR: Molpro template file: $templ expected!\n" unless -e $templ;
+die "ERROR: NameTranslation file: $nametrans expected!\n" unless -e $nametrans;
+$shlwarn=0;
+
+open (nameinfo,"<", $nametrans);
+while (<nameinfo>){
+chomp;
+if ((substr $_, 0, 1) eq "#") {next;}
+($name,$QMnam)=split;
+$trans{$name} = $QMnam;
+}
+
+
+open (molpro,"<", $templ); 
+while (<molpro>) {
+ unless (/GEOMETRY/) {print ;}
+ else {
+   print $_;
+   $_=<>;chomp;$natms=$_;
+   $_=<>;$pbc=$_;
+   print $natms."\n";
+   print "comment\n";
+   for($i=0;$i<$natms;$i++){
+     $_=<>; chomp; ($nam,$xxx,$yyy,$zzz,$mol,$mar)=split;
+     if ( $trans{$nam} ){
+     $tmpname=$trans{$nam} }
+     else {$tmpname = $nam;$shlwarn=1};
+     print "$tmpname,   $xxx,   $yyy,   $zzz\n";
+   }
+   do {$_=<molpro>} until ( $_ =~ /}/);
+   print $_;
+ }
+} 
+
+print STDERR "Warning: At least one atom name is not in the NameTranslation file.\n" if ($shlwarn);
+

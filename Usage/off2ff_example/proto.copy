@@ -1,0 +1,4 @@
+copy EXP EXP,fix
+copy SRD SRD,fix
+copy COU COU,fix
+charge file=final-charges COU,col4,ln1-40

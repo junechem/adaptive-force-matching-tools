@@ -1,0 +1,84 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== offget_atmtype - Atom Type Extractor ===\n\n";
+    print "PURPOSE:\n";
+    print "  Extract atom types for specific molecules from OFF file MOLTYP sections.\n";
+    print "  Essential for understanding molecular topology and atom type assignments.\n\n";
+    print "USAGE:\n";
+    print "  offget_atmtype file.off molecule_name\n";
+    print "  offget_atmtype system.off UNK\n\n";
+    print "PARAMETERS:\n";
+    print "  file.off      - Input OFF file containing MOLTYP section\n";
+    print "  molecule_name - Molecule identifier (case-insensitive)\n\n";
+    print "INPUT:\n";
+    print "  - OFF file with MOLTYP section\n";
+    print "  - Molecule definitions with atom type specifications\n";
+    print "  - Atom count and type assignments\n\n";
+    print "OUTPUT:\n";
+    print "  - Molecule name header\n";
+    print "  - Numbered list of atom types:\n";
+    print "    1    C1\n";
+    print "    2    C2\n";
+    print "    3    H1\n\n";
+    print "DETAILS:\n";
+    print "  - Searches MOLTYP section for molecule matches\n";
+    print "  - Case-insensitive molecule name matching\n";
+    print "  - Reads atom count from molecule definition\n";
+    print "  - Extracts numbered atom type assignments\n";
+    print "  - Stops after finding first matching molecule\n\n";
+    print "MOLTYP SECTION FORMAT:\n";
+    print "  MOLTYP UNK\n";
+    print "  [ 3 ]    # Number of atoms\n";
+    print "  1 C1     # Atom number and type\n";
+    print "  2 C2\n";
+    print "  3 H1\n\n";
+    print "EXAMPLES:\n";
+    print "  offget_atmtype system.off UNK      # Get UNK molecule atom types\n";
+    print "  offget_atmtype water.off H2O       # Get water atom types\n";
+    print "  offget_atmtype complex.off LIG     # Get ligand atom types\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Identify molecules: Check OFF file for available molecules\n";
+    print "  2. Extract atom types: offget_atmtype input.off MOLECULE\n";
+    print "  3. Use in topology: Apply atom types in parameter assignments\n";
+    print "  4. Validate consistency: Check against force field definitions\n\n";
+    print "OUTPUT FORMAT:\n";
+    print "  MOLECULE_NAME\n";
+    print "  1    ATM_TYPE1\n";
+    print "  2    ATM_TYPE2\n";
+    print "  3    ATM_TYPE3\n";
+    print "  - Fixed-width formatting for easy parsing\n\n";
+    print "SEE ALSO:\n";
+    print "  offget_intra       - Extract bonded parameters for molecules\n";
+    print "  offget_inter       - Extract non-bonded parameters\n";
+    print "  off2ff             - Convert parameters using atom types\n\n";
+}
+#get all the atom types of one molecule from CRYOFF.
+$bnk="    ";
+ 
+$filename=$ARGV[0];shift; 
+$molename=$ARGV[0];
+open (FIL,$filename) || die "can not open file $filename"."\n";
+
+print $molename."\n";
+while(<FIL>)
+{
+if (/MOLTYP/) {
+  if (/$molename/i) {
+    $_=<FIL>;
+    $_ =~ s/\[|\]//g;
+    ($text,$Natm)=split;
+    for ($n=0;$n<$Natm;$n++){
+      $_=<FIL>;
+      chomp;
+      ($num,$nam)=split;
+      print $num."    ".$nam."\n";
+    }
+    last;    
+  }
+  }
+}

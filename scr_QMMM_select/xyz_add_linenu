@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== xyz_add_linenu - XYZ Header Addition (Duplicate) ===\n\n";
+    print "PURPOSE:\n";
+    print "  Identical functionality to xyz_add_lineno. Adds standard XYZ format headers\n";
+    print "  to headerless coordinate files. This is a duplicate script.\n\n";
+    print "USAGE:\n";
+    print "  xyz_add_linenu [file.xyz]\n";
+    print "  xyz_add_linenu < coordinates.dat > complete.xyz\n\n";
+    print "PARAMETERS:\n";
+    print "  file.xyz    - Input coordinate file (optional, reads from stdin if not provided)\n\n";
+    print "INPUT:\n";
+    print "  - Headerless coordinate file (via stdin or file argument)\n";
+    print "  - Each line should contain coordinate data\n\n";
+    print "OUTPUT:\n";
+    print "  - Standard XYZ format written to stdout with structure:\n";
+    print "    Line 1: Number of atoms (counted automatically)\n";
+    print "    Line 2: 'comment' (standard comment line)\n";
+    print "    Lines 3+: Original coordinate data\n\n";
+    print "DETAILS:\n";
+    print "  - Same functionality as xyz_add_lineno\n";
+    print "  - Counts total number of input lines to determine atom count\n";
+    print "  - Adds atom count as first line\n";
+    print "  - Adds generic 'comment' as second line\n";
+    print "  - Preserves all original coordinate data unchanged\n\n";
+    print "EXAMPLES:\n";
+    print "  xyz_add_linenu coords.dat > standard.xyz              # Convert raw coordinates\n";
+    print "  pxyz_select 4 system.pxyz | xyz_add_linenu > qm.xyz   # Add headers to selection\n\n";
+    print "NOTE:\n";
+    print "  This script is identical to xyz_add_lineno. Use either one.\n\n";
+    print "SEE ALSO:\n";
+    print "  xyz_add_lineno  - Identical functionality\n";
+    print "  xyz_fix_lineno  - Fix incorrect atom counts in existing XYZ files\n\n";
+}
+
+$i=0;
+
+while(<>)
+{
+
+$i++;
+$buf.=$_;
+
+}
+
+print $i."\n";
+print "comment\n";
+print $buf;
+

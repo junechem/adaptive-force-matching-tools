@@ -1,0 +1,106 @@
+#!/usr/bin/perl
+#This routine mark up molecules from $valm to $val if there are no molecules within rcu  has a mark smaller than $valm.
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== markup_mol - Isolation-Based Molecular Selection ===\n\n";
+  print "PURPOSE:\n";
+  print "  Marks molecules based on isolation criteria. Only marks molecules where\n";
+  print "  no lower-marked atoms are within cutoff distance. Useful for identifying\n";
+  print "  'bulk' molecules away from surfaces or interfaces.\n\n";
+  print "USAGE:\n";
+  print "  markup_mol rcut mark_old mark_new [file.pxyz]\n";
+  print "  markup_mol 4.0 1 2 < system.pxyz > isolated.pxyz\n\n";
+  print "PARAMETERS:\n";
+  print "  rcut        - Cutoff distance in Angstroms for isolation check\n";
+  print "  mark_old    - Current mark value of molecules to test\n";
+  print "  mark_new    - New mark value for isolated molecules\n";
+  print "  file.pxyz   - Input .pxyz file (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - .pxyz format file (via stdin or file argument)\n";
+  print "  - Only supports orthorhombic (cubic/rectangular) simulation boxes\n\n";
+  print "OUTPUT:\n";
+  print "  - Modified .pxyz file written to stdout\n\n";
+  print "DETAILS:\n";
+  print "  - For each atom with mark 'mark_old', checks if any atoms with mark < mark_old\n";
+  print "    are within 'rcut' distance\n";
+  print "  - Only marks entire molecules where ALL atoms pass this isolation test\n";
+  print "  - Changes qualifying molecules from 'mark_old' to 'mark_new'\n";
+  print "  - Uses periodic boundary conditions for distance calculations\n";
+  print "  - Molecules that fail the isolation test remain unchanged\n\n";
+  print "EXAMPLES:\n";
+  print "  markup_mol 3.5 1 2 system.pxyz > bulk.pxyz     # Find bulk MM molecules\n";
+  print "  markup_mol 5.0 2 3 temp.pxyz > isolated.pxyz   # Isolate QM buffer molecules\n\n";
+  print "USE CASES:\n";
+  print "  - Finding bulk solvent molecules away from solute\n";
+  print "  - Identifying molecules suitable for pure MM treatment\n";
+  print "  - Quality control for QM/MM boundary placement\n\n";
+}
+
+
+$rcu=$ARGV[0];shift; $cut2=$rcu*$rcu;
+#This is the cut off
+$valm=$ARGV[0];shift; 
+#This is the value to be marked up 
+$val=$ARGV[0];shift;
+#This is the value to be marked up to
+
+$bnk="    ";
+$natm=<>;chomp($natm);
+$_=<>;@pbc=split; $comment=$_;
+($box1,$box2,$box3)=split;
+die "only orthorhombic box supported.\n" if @pbc>3;
+
+for ($i=0;$i<$natm;$i++)
+{
+$_=<>;
+($nam[$i],$xxx[$i],$yyy[$i],$zzz[$i],$mol[$i],$mar[$i])=split;
+}
+
+for ($i=0;$i<$natm;$i++)
+{
+  $markmol[$i]=0;
+  if ($mar[$i] == $valm) { 
+  
+  $markmol[$i]=1;
+  $xo=$xxx[$i];$yo=$yyy[$i];$zo=$zzz[$i];
+
+  for ($j=0; $j<$natm;$j++) {
+
+    if ($mar[$j] < $valm) {
+    
+      $dx=abs($xxx[$j]-$xo); $dx=$box1-$dx if $dx>$box1/2;
+      $dy=abs($yyy[$j]-$yo); $dy=$box2-$dy if $dy>$box2/2;
+      $dz=abs($zzz[$j]-$zo); $dz=$box3-$dz if $dz>$box3/2;
+      $dis2=$dx*$dx+$dy*$dy+$dz*$dz;
+
+      if ($dis2 < $cut2){$markmol[$i]=0;$j=$natm+1}
+    } # end if $mar[$j]
+} } }
+
+# now let start marking 
+$sum_markmol=1; $faom=0;
+$molname=$mol[$faom];
+
+for ($i=0;$i<$natm;$i++)
+{
+if ($molname eq $mol[$i]){
+$sum_markmol*=$markmol[$i];} 
+else {
+  if ($sum_markmol > 0) {
+  for ($k=$faom;$k<$i;$k++){ $mar[$k]=$val;}}
+  $sum_markmol=$markmol[$i];  $faom=$i; $molname=$mol[$faom];}
+}
+
+#output starts here
+print $natm."\n";
+print $comment;
+for ($i=0;$i<$natm;$i++)
+{
+print $nam[$i].$bnk.$xxx[$i].$bnk.$yyy[$i].$bnk.$zzz[$i].$bnk.$mol[$i].$bnk.$mar[$i]."\n";
+}
+

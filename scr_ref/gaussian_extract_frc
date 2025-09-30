@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== gaussian_extract_frc - Gaussian Force Extraction ===\n\n";
+    print "PURPOSE:\n";
+    print "  Extract forces from Gaussian output files.\n";
+    print "  Essential for preparing Gaussian QM forces for integration into .ref files.\n\n";
+    print "USAGE:\n";
+    print "  gaussian_extract_frc gaussian_output\n";
+    print "  gaussian_extract_frc molecule.out > forces.dat\n\n";
+    print "PARAMETERS:\n";
+    print "  gaussian_output - Gaussian .out or .log files containing force calculations\n\n";
+    print "INPUT:\n";
+    print "  - Gaussian output files with force calculations\n";
+    print "  - Must contain 'Forces (Hartrees/Bohr)' section\n\n";
+    print "OUTPUT:\n";
+    print "  - Forces in Hartree/Bohr units written to stdout\n";
+    print "  - Format: fx fy fz (one line per atom)\n\n";
+    print "DETAILS:\n";
+    print "  - Searches for 'Forces (Hartrees/Bohr)' section in Gaussian output\n";
+    print "  - Extracts x, y, z force components for each atom\n";
+    print "  - Outputs forces in atomic units (Hartree/Bohr)\n";
+    print "  - Stops processing when non-numeric line encountered\n";
+    print "  - Use with ref_upd_gaussian_frc for integration into AFMTools workflow\n\n";
+    print "EXAMPLES:\n";
+    print "  gaussian_extract_frc molecule.out > forces.dat\n";
+    print "  gaussian_extract_frc qm_calc.log | ref_upd_gaussian_frc /dev/stdin system.ref > updated.ref\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Run Gaussian calculation: gaussian < input.gjf > output.out\n";
+    print "  2. Extract forces: gaussian_extract_frc output.out > forces.dat\n";
+    print "  3. Add to .ref file: ref_upd_gaussian_frc forces.dat system.ref > final.ref\n\n";
+    print "SEE ALSO:\n";
+    print "  ref_upd_gaussian_frc - Add Gaussian forces to .ref files\n\n";
+}
+
+
+while(<>)
+{
+if (/Forces \(Hartrees\/Bohr\)/) {
+$_=<>;$_=<>;
+while(<>){
+chomp;
+($ind1, $ind2, $fx,$fy,$fz)=split;
+if ($ind1 =~ /\d+/) {
+print $fx."  ".$fy."   ".$fz."\n";
+}else { exit; }
+}
+}
+}
+
+

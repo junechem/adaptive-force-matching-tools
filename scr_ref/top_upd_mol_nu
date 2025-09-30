@@ -1,0 +1,69 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== top_upd_mol_nu - GROMACS Topology Water Count Updater ===\n\n";
+    print "PURPOSE:\n";
+    print "  Update water molecule count in GROMACS topology files.\n";
+    print "  Essential for proper GROMACS simulations with varying water counts.\n\n";
+    print "USAGE:\n";
+    print "  top_upd_mol_nu file.gro file.top\n";
+    print "  top_upd_mol_nu system.gro topol.top > corrected_topol.top\n\n";
+    print "PARAMETERS:\n";
+    print "  file.gro - GROMACS coordinate file\n";
+    print "  file.top - GROMACS topology file\n\n";
+    print "INPUT:\n";
+    print "  - GROMACS .gro coordinate file\n";
+    print "  - GROMACS .top topology file with potentially incorrect water count\n\n";
+    print "OUTPUT:\n";
+    print "  - Corrected topology file with proper molecule counts written to stdout\n\n";
+    print "DETAILS:\n";
+    print "  - Counts OW (water oxygen) atoms in .gro file\n";
+    print "  - Updates SOL (solvent) entries in topology file accordingly\n";
+    print "  - Preserves all other topology content unchanged\n";
+    print "  - Essential when .gro and .top files have mismatched water counts\n";
+    print "  - Used automatically by get_gmx_frc workflow\n\n";
+    print "WATER COUNTING:\n";
+    print "  - Searches for 'OW' atoms in coordinate file\n";
+    print "  - Uses grep -c for efficient counting\n";
+    print "  - Each OW atom represents one water molecule\n";
+    print "  - Updates topology [molecules] section\n\n";
+    print "TOPOLOGY UPDATE:\n";
+    print "  - Finds lines containing 'SOL ' in topology\n";
+    print "  - Replaces with 'SOL    [water_count]'\n";
+    print "  - Maintains proper GROMACS topology format\n";
+    print "  - Preserves spacing and formatting\n\n";
+    print "EXAMPLES:\n";
+    print "  top_upd_mol_nu system.gro topol.top > corrected_topol.top\n";
+    print "  top_upd_mol_nu coords.gro template.top | gmx grompp -f mdrun.mdp\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Generate/modify .gro file with different water count\n";
+    print "  2. Update topology: top_upd_mol_nu new.gro template.top > updated.top\n";
+    print "  3. Use in GROMACS: gmx grompp -c new.gro -p updated.top\n\n";
+    print "ERROR HANDLING:\n";
+    print "  - Dies if topology file cannot be opened\n";
+    print "  - Requires both .gro and .top files as arguments\n";
+    print "  - Water count determined from actual .gro content\n\n";
+    print "USE CASES:\n";
+    print "  - QM/MM systems with varying solvation shells\n";
+    print "  - Equilibration runs with different box sizes\n";
+    print "  - Template topology files used with multiple systems\n";
+    print "  - Automated workflows requiring consistent topologies\n\n";
+    print "SEE ALSO:\n";
+    print "  get_gmx_frc     - GROMACS force calculator (uses this script)\n";
+    print "  ref_upd_gmx_frc - Add GROMACS forces to .ref files\n\n";
+}
+
+$nwater=`grep -c OW $ARGV[0]`;
+open(TTOP,$ARGV[1]) || die "can not opne file $ARGV[1]\n";
+while(<>)
+{
+if (/SOL /)
+{
+print "SOL    $nwater\n";
+}
+else {print;}
+}

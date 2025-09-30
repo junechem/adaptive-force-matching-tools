@@ -1,0 +1,106 @@
+#!/usr/bin/perl
+# update the QM region specification in a template GAMESS file
+# the MM partial charges are handled in a different script
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== pxyz_gms_upd_geom - GAMESS Geometry Update ===\n\n";
+  print "PURPOSE:\n";
+  print "  Updates the QM geometry section in GAMESS input files with coordinates from .pxyz files.\n";
+  print "  Essential for preparing GAMESS QM calculations from QM/MM selections.\n\n";
+  print "USAGE:\n";
+  print "  pxyz_gms_upd_geom template.in nuclear_charge_info [file.pxyz]\n";
+  print "  pxyz_gms_upd_geom template.inp gms.nucinfo qm_region.pxyz > gamess.inp\n\n";
+  print "PARAMETERS:\n";
+  print "  template.in         - GAMESS template file with \$DATA section\n";
+  print "  nuclear_charge_info - File with atomic numbers and optional QM names\n";
+  print "  file.pxyz           - Coordinate data (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - GAMESS template file with '\$DATA' section placeholder\n";
+  print "  - Nuclear charge file format: 'atomname atomicnumber [QMname]'\n";
+  print "  - .pxyz format: 'atomname x y z molname mark'\n\n";
+  print "OUTPUT:\n";
+  print "  - Complete GAMESS input file written to stdout with updated geometry\n";
+  print "  - Dies with error if atomic number not found for any atom\n\n";
+  print "DETAILS:\n";
+  print "  - Searches for '\$DATA' section in template\n";
+  print "  - Preserves molecule name and symmetry lines from template\n";
+  print "  - Format: 'atomname+mark atomicnumber x y z'\n";
+  print "  - Appends mark value to atom names for identification\n";
+  print "  - Three-column nucinfo format: 'atomname atomicnumber [QMname]'\n";
+  print "  - Uses QMname if provided, otherwise uses original atomname\n";
+  print "  - Continues until 'END' marker found in template\n\n";
+  print "NUCLEAR CHARGE FILE FORMAT:\n";
+  print "  # Comments start with #\n";
+  print "  H1          1       H\n";
+  print "  CA          6       C\n";
+  print "  OW          8       O\n";
+  print "  MW          0            # dummy atom with zero charge\n\n";
+  print "GAMESS \$DATA FORMAT:\n";
+  print "  \$DATA\n";
+  print "  molecule title\n";
+  print "  C1\n";
+  print "  H4      1.0   31.26000   29.05000   54.94000\n";
+  print "  C4      6.0   30.78000   28.03000   54.67000\n";
+  print "  \$END\n\n";
+  print "EXAMPLES:\n";
+  print "  pxyz_gms_upd_geom template.inp gms.nucinfo qm_region.pxyz > gamess.inp\n";
+  print "  pxyz_gms_upd_geom qm.inp nucinfo < qm_atoms.pxyz > calculation.inp\n\n";
+  print "TEMPLATE REQUIREMENT:\n";
+  print "  Template must contain '\$DATA' section with molecule name and symmetry.\n";
+  print "  Example template section:\n";
+  print "  \$DATA\n";
+  print "  QM region calculation\n";
+  print "  C1\n";
+  print "  (coordinates will be inserted here)\n";
+  print "  \$END\n\n";
+  print "MARK SYSTEM:\n";
+  print "  - Atom names get mark value appended (e.g., 'H1' + mark '4' = 'H14')\n";
+  print "  - Helps identify QM region atoms in complex systems\n";
+  print "  - Mark values: 4=QM center, 3=QM fitting, 2=QM buffer\n\n";
+  print "SEE ALSO:\n";
+  print "  pxyz_gms_upd_frag - Generate EFP fragment section for MM charges\n\n";
+}
+
+$templ=$ARGV[0];shift;  #This is GAMESS file,take pxyz from <>
+$znucinfo=$ARGV[0];shift; #This is nuclear charge information
+$bnk='    ';
+
+die "ERROR: GAMESS template file: $templ expected!\n" unless -e $templ;
+die "ERROR: Nuclear charge file: $znucinfo expected!\n" unless -e $znucinfo;
+
+open (znuc,"<", $znucinfo);
+while (<znuc>){
+chomp;
+if ((substr $_, 0, 1) eq "#") {next;}
+($name,$Zval,$QMnam)=split;
+$nuc{$name} = $Zval;
+$trans{$name} = $name;
+$trans{$name} = $QMnam if $QMnam ;
+ }
+
+open (gms,"<", $templ);   
+
+while (<gms>) {
+  unless (/\$DATA/) {print ;}
+  else {
+   print $_;
+   $_=<gms>; print; #molname 
+   $_=<gms>; print; #symmetry
+   $_=<>;chomp;$natms=$_;
+   $_=<>;$pbc=$_;
+ 
+   for($i=0;$i<$natms;$i++){
+     $_=<>; chomp; ($nam, $xxx, $yyy, $zzz,$mol,$mar)=split;
+     die "ERROR: No atomic number found for $nam, Please check $znucinfo file!" unless exists($nuc{$nam});
+     print $trans{$nam}.$mar.$bnk.$nuc{$nam}.$bnk.$xxx.$bnk.$yyy.$bnk.$zzz."\n";
+   } 
+   do {$_=<gms>} until ( $_ =~ /END/);
+   print $_;
+   }  #end of else
+} 
+

@@ -1,0 +1,74 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== ref_fix_linenu - Atom Count Corrector ===\n\n";
+    print "PURPOSE:\n";
+    print "  Fix atom count in XYZ or .ref files.\n";
+    print "  Essential after adding M-sites or other modifications that change atom count.\n\n";
+    print "USAGE:\n";
+    print "  ref_fix_linenu [file.xyz|file.ref]\n";
+    print "  ref_fix_linenu broken.ref > fixed.ref\n\n";
+    print "PARAMETERS:\n";
+    print "  file - XYZ or .ref file (optional, reads from stdin if not provided)\n\n";
+    print "INPUT:\n";
+    print "  - XYZ or .ref files (potentially with incorrect atom counts)\n";
+    print "  - Files with first line containing incorrect atom count\n\n";
+    print "OUTPUT:\n";
+    print "  - Corrected file with proper atom count in first line written to stdout\n\n";
+    print "DETAILS:\n";
+    print "  - Counts actual atoms in file and updates the first line accordingly\n";
+    print "  - Works with both XYZ and .ref file formats\n";
+    print "  - Preserves all atom data and formatting\n";
+    print "  - Skips first line (old atom count) and comment line\n";
+    print "  - Counts remaining lines as atoms\n\n";
+    print "FILE FORMAT HANDLING:\n";
+    print "  - XYZ format: atom_count\\ncomment\\natom_lines...\n";
+    print "  - .ref format: atom_count\\ncomment\\natom_and_netf_lines...\n";
+    print "  - Counts all data lines after comment\n";
+    print "  - Updates first line with correct count\n\n";
+    print "EXAMPLES:\n";
+    print "  ref_fix_linenu broken.ref > fixed.ref\n";
+    print "  cat modified.xyz | ref_fix_linenu > corrected.xyz\n";
+    print "  ref_fix_linenu system_with_msites.ref > final.ref\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  After adding M-sites:\n";
+    print "  1. xyz_add_msite Ow Hw Hw Ew system.ref > with_msites.ref\n";
+    print "  2. ref_fix_linenu with_msites.ref > corrected.ref\n\n";
+    print "COMMON USAGE SCENARIOS:\n";
+    print "  - After xyz_add_msite operations\n";
+    print "  - When combining multiple coordinate files\n";
+    print "  - After manual editing of coordinate files\n";
+    print "  - When atom count header becomes incorrect\n\n";
+    print "NOTE:\n";
+    print "  - There is also xyz_fix_linenu in scr_QMMM_select/ with identical functionality\n";
+    print "  - Both scripts perform the same atom count correction\n";
+    print "  - Use whichever is more convenient for your workflow\n\n";
+    print "SEE ALSO:\n";
+    print "  xyz_add_msite       - Add M-sites (often requires line count fix)\n";
+    print "  xyz_fix_linenu      - Identical script in scr_QMMM_select/\n";
+    print "  ref_fix_msite       - Set M-site forces to zero\n\n";
+}
+
+
+$_=<>;
+
+$i=0;
+
+$_=<>;
+$buf=$_;
+
+while(<>)
+{
+
+$i++;
+$buf.=$_;
+
+}
+
+print $i."\n";
+print $buf;
+

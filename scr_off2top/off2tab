@@ -1,0 +1,163 @@
+#!/usr/bin/perl
+
+# off2tab - Generate tabulated potential files from OFF parameters for MD simulations
+#
+# This script creates tabulated potential lookup tables (.xvg files) from OFF parameters
+# for use in molecular dynamics simulations requiring custom or non-standard potentials.
+
+if (@ARGV < 3 || $ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    print_help();
+    exit(@ARGV < 3 ? 1 : 0);
+}
+
+sub print_help {
+    print << 'EOF';
+
+NAME
+    off2tab - Generate tabulated potential files from OFF parameters for MD simulations
+
+PURPOSE
+    This script generates tabulated potential lookup tables (.xvg files) from OFF
+    parameters for use in molecular dynamics simulations. It creates distance-potential
+    tables that enable the use of custom or non-standard potential functions that
+    cannot be expressed analytically in standard MD packages like GROMACS.
+
+USAGE
+    off2tab protocol_file input.off topology.top
+
+PARAMETERS
+    protocol_file - Protocol file specifying table generation parameters
+    input.off     - Input OFF file containing potential parameters
+    topology.top  - Reference topology file for atom type information
+
+INPUT
+    • Protocol file: Defines table generation operations
+      Format: operation_type parameters patterns
+    
+    • OFF file: Contains Inter-Potential, Table-Potential, or other sections
+      with parameters for tabulated potentials
+    
+    • Topology file: GROMACS topology file used for atom type reference
+      and validation of generated tables
+
+OUTPUT
+    • Tabulated potential files (.xvg format) compatible with GROMACS
+    • tab_list file containing list of generated table files
+    • Progress messages showing table generation status
+    • Individual tables for each atom pair/potential combination
+
+PROTOCOL OPERATIONS
+    
+    tab.nonbond - Generate non-bonded tabulated potentials
+    Format: tab.nonbond topology_spec patterns
+    
+    Parameters:
+    - topology_spec: TOP_section,patterns for table generation
+    - patterns: Control options like type=atmtype, prefix=name, scale=factor
+    
+    Example protocols:
+    tab.nonbond cutoff,deltr,ln1-10 type=atmtype,prefix=Ala7
+    tab.nonbond cutoff,deltr,ln1-10 type=atmtype,scale=C6
+    tab.nonbond 2,0.1,ln1-10 default
+    
+    tab.bond - Generate bonded tabulated potentials (planned)
+    Format: tab.bond OFF_section TOP_section patterns
+
+DETAILS
+    The script works by:
+    1. Reading protocol file to determine table generation requirements
+    2. Extracting potential parameters from OFF file
+    3. Calling appropriate off2top_*_gentab subscripts
+    4. Generating .xvg files with proper GROMACS formatting
+    5. Creating tab_list file with generated table references
+    
+    Table Generation Process:
+    - Identifies atom pairs requiring tabulated potentials
+    - Extracts parameters from OFF file sections
+    - Calculates potential and force values over specified grid
+    - Formats output for GROMACS table requirements
+    - Handles multiple potential types per atom pair
+    
+    Grid Specifications:
+    - cutoff: Maximum distance for table generation (Angstrom)
+    - deltr: Distance spacing/resolution (Angstrom)  
+    - line_specs: Line ranges from OFF file to process
+
+PATTERNS AND OPTIONS
+    • type=atmtype: Use atom type mapping for table generation
+    • prefix=name: Add prefix to generated table file names
+    • scale=factor: Apply scaling factors (e.g., C6 for dispersion)
+    • default: Standard table generation without special options
+    • ln1-10: Process lines 1 through 10 from specified section
+
+EXAMPLES
+    off2tab protocol.off2tab system.off topology.top
+        Generate tables using protocol specifications
+    
+    Protocol file content:
+    tab.nonbond 12.0,0.01,ln1-20 type=atmtype,prefix=custom
+        Generate tables up to 12 Angstrom with 0.01 spacing
+        Use atom type mapping and custom prefix
+    
+    tab.nonbond 15.0,0.005,ln1-10 scale=C6
+        Generate high-resolution tables with C6 scaling
+
+INTEGRATION
+    Generated tables integrate with MD simulation workflows:
+    • GROMACS: Direct .xvg table support via energygrp-table
+    • Custom potentials: Enable non-standard potential functions
+    • AFM workflows: Use optimized parameters in production simulations
+    • Validation: Test force field quality with custom interactions
+
+FILE OUTPUTS
+    • Individual .xvg files: One per atom pair/potential combination
+    • tab_list: Master list of generated table files
+    • Progress messages: Status of each table generation operation
+    • Error messages: Issues with parameter extraction or table generation
+
+SAFETY FEATURES
+    - Checks for existing tab_list file before starting
+    - Error handling for missing input files
+    - Validation of protocol file syntax
+    - Progress reporting for operation tracking
+
+DEPENDENCIES
+    - off2top_nonbonded_gentab: Non-bonded table generation
+    - off2top_bonded_tab: Bonded table generation (planned)
+    - Compatible OFF and topology file formats
+    - Proper protocol file syntax
+    - GROMACS table format requirements
+
+EOF
+}
+
+
+
+$protfile=$ARGV[0];$inputoff=$ARGV[1];$inptop = $ARGV[2];
+die "$inptop file not found.\n" unless ( -e $inptop);
+die "delete tab_list file before starting" if ( -e "tab_list");
+
+open(PRO,$protfile);
+while(<PRO>)
+{
+if ( $_ =~ /^\s*$|#/) {next;}
+print "\nProtocol: ";print;
+($what)=split;
+
+#nonbonded tabulated potentials in parameter files
+if ($what =~ /tab.nonbond/i) {
+  ($what,$toppam,$pattern)=split;
+  print "Generate tabulated potentials for parameter file $inptop :\n";
+  print "off2top_nonbonded_gentab $toppam  $pattern  $inputoff $inptop\n";
+  system("off2top_nonbonded_gentab $toppam  $pattern  $inputoff $inptop")}
+
+elsif ($what =~ /tab.bond/i) {
+  ($what,$offpam,$toppam,$pattern)=split;
+  print "Generate tabulated potentials for parameter file $inptop :\n";
+  system("off2top_bonded_tab  $offpam  $toppam  $pattern  $inputoff $inptop")}
+
+else { 
+  die  "No rules for this type: $what.\n";
+}
+
+} #end while

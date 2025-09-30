@@ -1,0 +1,70 @@
+#!/usr/bin/perl
+#Ths routine randomly mark up a molecule from $valm to $val
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== markup_random - Random Molecular Selection ===\n\n";
+  print "PURPOSE:\n";
+  print "  Randomly selects one molecule from those with a specific mark value and assigns\n";
+  print "  it a new mark. Useful for selecting a center molecule for QM/MM calculations.\n\n";
+  print "USAGE:\n";
+  print "  markup_random mark_old mark_new [file.pxyz]\n";
+  print "  markup_random -9 4 < system.pxyz > marked.pxyz\n\n";
+  print "PARAMETERS:\n";
+  print "  mark_old    - Current mark value to search for\n";
+  print "  mark_new    - New mark value to assign to selected molecule\n";
+  print "  file.pxyz   - Input .pxyz file (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - .pxyz format file (via stdin or file argument)\n";
+  print "  - Only supports orthorhombic (cubic/rectangular) simulation boxes\n\n";
+  print "OUTPUT:\n";
+  print "  - Modified .pxyz file written to stdout\n";
+  print "  - Selected molecule name written to stderr\n\n";
+  print "DETAILS:\n";
+  print "  - Identifies all unique molecules with mark value 'mark_old'\n";
+  print "  - Randomly selects one of these molecules using Perl's rand() function\n";
+  print "  - Changes the mark of ALL atoms in the selected molecule to 'mark_new'\n";
+  print "  - Other molecules remain unchanged\n\n";
+  print "EXAMPLES:\n";
+  print "  markup_random -9 4 system.pxyz > center.pxyz    # Select center QM molecule\n";
+  print "  markup_random 2 3 temp.pxyz > fitting.pxyz     # Select QM fitting molecule\n\n";
+}
+
+
+
+$bnk="   ";
+
+$valm=$ARGV[0];shift;
+$val=$ARGV[0];shift;
+
+$_=<>;print;chomp;
+$natm=$_;
+$_=<>;@pbc=split; print;
+($box1,$box2,$box3)=split;
+die "only orthorhombic box supported.\n" if @pbc>3;
+
+$totQM=0;
+$molname[0]="Pleasedonotusethisnameforamolecule";
+for ($i=0;$i<$natm;$i++)
+{
+$_=<>;
+($nam[$i],$xxx[$i],$yyy[$i],$zzz[$i],$mol[$i],$mar[$i])=split;
+if ($mar[$i]==$valm){
+
+unless ($molname[$totQM] eq $mol[$i] ){
+$totQM++;$molname[$totQM] = $mol[$i];
+} } }  #end of for
+
+$mol2mark=int(rand($totQM))+1; # chose an atom in inner QM region
+$cenmol=$molname[$mol2mark];
+print STDERR "Mark up molecule: $cenmol \n";
+#print STDERR $totQM.$bnk.$mol2mark.$bnk.$cenmol."\n";
+
+for ($i=0;$i<$natm;$i++)
+{
+$mar[$i]=$val if $mol[$i] eq $cenmol;
+print $nam[$i].$bnk.$xxx[$i].$bnk.$yyy[$i].$bnk.$zzz[$i].$bnk.$mol[$i].$bnk.$mar[$i]."\n";
+}

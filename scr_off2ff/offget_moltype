@@ -1,0 +1,113 @@
+#!/usr/bin/perl
+
+# offget_moltype - Extract atom types of a specific molecule from OFF file
+#
+# This script reads an OFF format file and extracts all atom type information
+# for a specified molecule from the MOLTYP section.
+
+if (@ARGV < 2 || $ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    print_help();
+    exit(@ARGV < 2 ? 1 : 0);
+}
+
+sub print_help {
+    print << 'EOF';
+
+NAME
+    offget_moltype - Extract atom types of a specific molecule from OFF file
+
+PURPOSE  
+    This script extracts and displays all atom type information for a specified
+    molecule from the MOLTYP section of an OFF format file. It provides the
+    atom numbers and corresponding atom type names for the requested molecule.
+
+USAGE
+    offget_moltype file.off molecule_name
+
+PARAMETERS
+    file.off       - Input OFF format file containing molecular data
+    molecule_name  - Name of the molecule to extract atom types from
+                     (case-insensitive matching)
+
+INPUT
+    • OFF file: Standard OFF format file with MOLTYP sections containing
+      molecular definitions with atom numbers and type names
+
+OUTPUT
+    • Molecule name (header line)
+    • List of atom entries with format: "atom_number    atom_type_name"
+    • Output is printed to standard output
+
+DETAILS
+    The script works by:
+    1. Opening and reading the specified OFF file line by line
+    2. Searching for MOLTYP sections that contain the requested molecule name
+    3. When found, reading the atom count from the bracketed information
+    4. Extracting the specified number of atom entries following the header
+    5. Formatting and displaying each atom number and type name pair
+
+    The molecule name matching is case-insensitive, making the search more
+    flexible. The script stops after finding the first matching molecule.
+
+    The OFF file MOLTYP section format expected:
+    MOLTYP molecule_name
+    [text Natoms]
+    1 atom_type1
+    2 atom_type2
+    ...
+
+EXAMPLES
+    # Extract atom types for water molecule
+    offget_moltype system.off H2O
+
+    # Get atom information for methane
+    offget_moltype forcefield.off CH4
+    
+    # Extract complex molecule data
+    offget_moltype protein.off LYS
+
+    Example output:
+    H2O
+    1    OW
+    2    HW
+    3    HW
+
+TYPICAL WORKFLOW
+    1. Identify the molecule name as it appears in the OFF file
+    2. Run the script to extract atom type information
+    3. Use the output for force field parameter assignment or analysis
+    4. Pipe output to file if needed for further processing
+
+SEE ALSO
+    offget_tabparam, offget_charge, offget_inter
+
+EOF
+}
+
+#get all the atom types of one molecule from CRYOFF.
+
+
+$bnk="    ";
+ 
+$filename=$ARGV[0];shift; 
+$molename=$ARGV[0];
+open (FIL,$filename) || die "can not open file $filename"."\n";
+
+print $molename."\n";
+while(<FIL>)
+{
+if (/MOLTYP/) {
+  if (/$molename/i) {
+    $_=<FIL>;
+    $_ =~ s/\[|\]//g;
+    ($text,$Natm)=split;
+    for ($n=0;$n<$Natm;$n++){
+      $_=<FIL>;
+      chomp;
+      ($num,$nam)=split;
+      print $num."    ".$nam."\n";
+    }
+    last;    
+  }
+  }
+}

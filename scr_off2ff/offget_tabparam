@@ -1,0 +1,146 @@
+#!/usr/bin/perl
+
+# offget_tabparam - Extract table potential parameters from OFF file
+#
+# This script extracts and formats tabulated potential parameters from the
+# Table-Potential section of OFF files, with optional exclusion filtering.
+
+if (@ARGV < 1 || $ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    print_help();
+    exit(@ARGV < 1 ? 1 : 0);
+}
+
+sub print_help {
+    print << 'EOF';
+
+NAME
+    offget_tabparam - Extract table potential parameters from OFF file
+
+PURPOSE
+    This script extracts tabulated potential parameters from the Table-Potential
+    section of OFF format files. It can selectively exclude certain atom pair
+    interactions based on specified exclusion patterns, and formats the output
+    for use in force field applications.
+
+USAGE
+    offget_tabparam file.off [exclusion_patterns...]
+
+PARAMETERS
+    file.off           - Input OFF format file containing Table-Potential section
+    exclusion_patterns - Optional atom pair exclusion patterns (space-separated)
+                        • Single atom: "ATOM" excludes any pair containing ATOM
+                        • Atom pair: "ATOM1~ATOM2" or "ATOM1:ATOM2" excludes specific pairs
+                        • Multiple patterns can be specified
+
+INPUT
+    • OFF file: Contains Table-Potential section with atom pair parameters
+      Format: ATOM1~ATOM2:TYPE param1 param2 param3 ...
+
+OUTPUT
+    • Formatted table potential parameters, one per line
+    • Format: "ATOM1    ATOM2    param1    param2    param3    ..."
+    • Special formatting for coulomb (COU) and THC potentials (higher precision)
+    • Non-numeric parameters preserved as-is
+    • Excluded pairs are omitted from output
+
+DETAILS
+    The script works by:
+    1. Reading the OFF file and locating the Table-Potential section
+    2. Parsing each potential line to extract atom pairs and parameters
+    3. Applying exclusion filters if specified
+    4. Formatting numeric parameters with appropriate precision
+    5. Handling special cases for coulomb potentials (COU/THC)
+
+    Parameter formatting:
+    • Standard parameters: 12.3f format (3 decimal places)
+    • Coulomb parameters: 13.10f format (10 decimal places for 4th parameter)
+    • Text parameters: Preserved exactly as written
+    • Scientific notation: Preserved for E- and E+ formats
+
+    Exclusion patterns:
+    • "HW" - excludes any pair containing HW atom type
+    • "HW~OW" - excludes HW-OW pairs specifically
+    • "HW:OW" - same as above (colon and tilde are equivalent)
+    • Multiple exclusions: "HW~MW HW~OW HMM MMM"
+
+EXAMPLES
+    # Extract all table parameters
+    offget_tabparam system.off
+
+    # Exclude hydrogen-water interactions
+    offget_tabparam system.off HW~OW HW~MW
+
+    # Exclude all terms involving hydrogen atoms
+    offget_tabparam system.off HW
+
+    # Multiple exclusions for specific pairs
+    offget_tabparam system.off "NA~CL" "MG~PO4" "CA"
+
+    Example output:
+    OW     OW        0.650     3.166    LJ     332.054
+    NA     CL        1.000     4.401    COU    0.5924670000
+    CA     PO4       2.000     5.100    THC    1.2345678901
+
+TYPICAL WORKFLOW
+    1. Identify the OFF file containing table potential data
+    2. Determine which atom pairs should be excluded from analysis
+    3. Run the script with appropriate exclusion patterns
+    4. Use the formatted output for force field setup or table generation
+    5. Pipe output to file or other processing tools as needed
+
+SEE ALSO
+    offgen_tab, offget_moltype, gen_nonbonded_tab, tabcombine
+
+EOF
+}
+
+
+
+$bnk="  ";
+ 
+$filename=$ARGV[0];shift; 
+open (FIL,$filename) || die "can not open file $filename"."\n";
+
+while(<FIL>)
+{
+if (/Table-Potential/) {
+  $npot=0;
+  while(<FIL>) {
+    chomp; $tmp=$_;
+    push @pot, "$tmp";
+    $npot++;
+  }
+}
+}
+
+for ($j=0;$j<$npot;$j++){
+   $str=$pot[$j];
+   chomp($str);
+   $str =~ s/^\s+|\s+$//g;
+   $str =~ s/\~|:/ /g;
+   @ipot=split /\s+/,$str;
+   $atm1=$ipot[0];$atm2=$ipot[1];
+   $list=1;
+   for ($i=0;$i<@ARGV;$i++) {
+     if ($list) {
+       $exclusion=$ARGV[$i];
+       @excl=split(/~|:/,$exclusion);
+       if ( @excl == 1 ) { $list=0 if $atm1 eq $excl[0] or $atm2 eq $excl[0];}
+       if ( @excl == 2 ) { $list=0 if ($atm1 eq $excl[0] or $atm1 eq $excl[1]) and ($atm2 eq $excl[0] or $atm2 eq $excl[1]);}
+     }
+   }
+
+   if ($list) {
+     $atm1=sprintf("%-5s",$ipot[0]);$atm2=sprintf("%-5s",$ipot[1]);$type=substr($ipot[2],0,3);
+     $param=$atm1."    ".$atm2;
+         
+     for ($i=2;$i<@ipot;$i++) {
+         $paramtemp=sprintf("%12.3f",$ipot[$i]);
+         if ($i == 3) {
+         $paramtemp=sprintf("%13.10f",$ipot[$i]) if uc($type) eq "COU" or uc($type) eq "THC";}
+         $paramtemp=$ipot[$i] if $ipot[$i] =~ /[a-zA-Z]/ and $ipot[$i] !~ /E-/ and $ipot[$i] !~ /E\+/;
+         $param=$param."    ".$paramtemp;
+     }
+   print $param."\n";
+   }
+}

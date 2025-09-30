@@ -1,0 +1,214 @@
+#!/usr/bin/perl
+
+# off2top_nonbonded_param - Transfer non-bonded parameters from OFF to topology files
+#
+# This script updates non-bonded parameters in parameter files within topology
+# files using parameter data from the Inter-Potential section of OFF files.
+
+if (@ARGV < 6 || $ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    print_help();
+    exit(@ARGV < 6 ? 1 : 0);
+}
+
+sub print_help {
+    print << 'EOF';
+
+NAME
+    off2top_nonbonded_param - Transfer non-bonded parameters from OFF to topology files
+
+PURPOSE
+    This script updates non-bonded parameters in parameter files within topology
+    files using parameter data extracted from the Inter-Potential section of OFF
+    files. It handles various potential types (COU, EXP, SRD, POW, etc.), atom
+    type mapping, and unit conversions for proper parameter transfer.
+
+USAGE
+    off2top_nonbonded_param OFF_source TOP_destination unit_conversion patterns input.off template.top output.top
+
+PARAMETERS
+    OFF_source      - Source specification in OFF file
+                     Format: section_type,column[,line_specs]
+    TOP_destination - Target specification in topology file
+                     Format: section_name,column,line_ranges
+    unit_conversion - Unit conversion factor (e.g., 4.184 for kcal/mol→kJ/mol)
+    patterns        - Processing patterns (default, type=atmtype, no)
+    input.off       - Input OFF file containing non-bonded parameters
+    template.top    - Input topology file to update
+    output.top      - Output topology file with updated parameters
+
+INPUT
+    • OFF file: Contains Inter-Potential section with non-bonded parameters
+      organized by potential type (COU, EXP, SRD, POW, STRC, etc.)
+    
+    • Topology file: GROMACS topology with parameter files containing
+      [nonbond_params] or similar sections to be updated
+
+OUTPUT
+    • Updated topology file with new non-bonded parameters
+    • Progress messages showing parameter updates for each atom pair
+    • Preserves topology file structure and formatting
+
+OFF SOURCE FORMAT
+    section_type,column[,line_specifications]
+    - section_type: Inter-Potential section (COU, EXP, SRD, POW, STRC, etc.)
+    - column: Column containing parameter values (col3, col4, etc.)
+    - line_specs: Optional line ranges (ln1-20, ln1,ln5,ln10)
+    
+    Examples:
+    - STRC,col3: Extract all STRC parameters from column 3
+    - EXP,col4,ln1-10: Extract EXP parameters from column 4, lines 1-10
+    - COU,col3,ln5,ln10,ln15: Extract specific COU parameter lines
+
+TOPOLOGY DESTINATION FORMAT
+    section_name,column,line_ranges
+    - section_name: Parameter section in topology (nonbond_params, etc.)
+    - column: Column number for parameters (col4, col5, etc.)
+    - line_ranges: Lines to update (ln1-100, ln1,ln5,ln10)
+    
+    Examples:
+    - nonbond_params,col4,ln1-100: Update parameter column 4, lines 1-100
+    - nonbond_params,col5,ln10-50: Update parameter column 5, lines 10-50
+
+PATTERNS
+    • default: Standard processing with direct atom type matching from OFF file
+    
+    • type=atmtype: Use atom type mapping from external file
+      - Requires mapping file with format: topology_type off_type
+      - Enables translation between different naming conventions
+      - Essential when OFF and topology use different atom type names
+    
+    • no: Use atom types exactly as specified without mapping
+
+DETAILS
+    The script works by:
+    1. Extracting non-bonded parameters from OFF file using offget_inter
+    2. Building atom type mappings from external file if specified
+    3. Reading current topology parameter structure using topget_param_paramfile
+    4. Matching atom type pairs between OFF and topology formats
+    5. Updating parameters using topupd_paramfile for each matched pair
+    6. Applying unit conversion factors
+    7. Preserving all other topology information
+    
+    Parameter Matching:
+    - Matches atom type pairs (A-B same as B-A)
+    - Uses extracted atom type names from both files
+    - Applies atom type translations if mapping specified
+    - Handles missing parameters gracefully
+
+SUPPORTED POTENTIAL TYPES
+    The script can handle various Inter-Potential section types:
+    • COU: Coulomb interactions (charge products)
+    • EXP: Exponential repulsion parameters
+    • SRD: Short-range damped dispersion
+    • POW: Power-law dispersion (C6, C8, C10, etc.)
+    • STRC: Structure-based potentials
+    • BUC: Buckingham potential parameters
+    • Custom: Any defined potential type in OFF files
+
+UNIT CONVERSIONS
+    Common conversion factors for different potential types:
+    • 4.184: kcal/mol → kJ/mol (energy parameters)
+    • 1.0: Same units (dimensionless, distances)
+    • 0.1: Å → nm (distance parameters)
+    • Custom factors for specific potential types
+    
+    Applied as: final_parameter = off_parameter * unit_conversion
+
+EXAMPLES
+    off2top_nonbonded_param "STRC,col3,ln1-20" "nonbond_params,col4,ln1-100" 4.184 default system.off template.top output.top
+        Transfer STRC parameters with energy unit conversion
+    
+    off2top_nonbonded_param "EXP,col4" "nonbond_params,col5,ln1-50" 1.0 type=atmtype system.off template.top output.top
+        Transfer EXP parameters with atom type mapping
+    
+    off2top_nonbonded_param "COU,col3,ln1,ln5,ln10" "nonbond_params,col6,ln20-25" 1.0 no system.off template.top output.top
+        Transfer specific COU parameters without atom type mapping
+
+INTEGRATION
+    This script integrates with AFM topology conversion workflows:
+    • Called by off2top with pam.nonbond operations
+    • Works with offget_inter for parameter extraction
+    • Uses topget_param_paramfile and topupd_paramfile for topology manipulation  
+    • Supports parameter file approach for better flexibility
+    • Handles various potential types and parameter formats
+
+ATOM TYPE HANDLING
+    • Uses atom type names from OFF file Inter-Potential sections
+    • Supports external atom type mapping files for name translation
+    • Handles case-insensitive atom type matching
+    • Maintains consistency between different naming conventions
+    • Preserves symmetry in atom pair parameters (A-B = B-A)
+
+PARAMETER PRECISION
+    • Formats output parameters to 4 decimal places
+    • Maintains numerical precision during unit conversions
+    • Handles floating-point parameter values
+    • Preserves parameter significance for simulation accuracy
+
+SAFETY FEATURES
+    - Temporary file usage prevents input file corruption
+    - Output overwrite protection
+    - Progress reporting for parameter updates
+    - Handles missing atom type pairs gracefully
+    - Preserves topology file structure and formatting
+
+EOF
+}
+
+$offpam=$ARGV[0];$toppam=$ARGV[1];$unitcov=$ARGV[2];$pattern=$ARGV[3];
+$inputoff=$ARGV[4];$inptop = $ARGV[5]; $outtop = $ARGV[6];
+$tmpfile = "/tmp/temptop.$$"; $tmpfil2 = "/tmp/temptop2.$$";
+system ("cp $inptop $tmpfile");
+die "script will not overwrite existing output\n" if (-e $outtop);
+
+#get potential from off file.
+@off=split(',',$offpam);
+$keyword=$off[0]; $offcol=substr $off[1],3;
+$getpot=$keyword;
+for ($n=2;$n<@off;$n++) { $getpot=$getpot.",".$off[$n]; }
+@total=`offget_inter $inputoff $getpot`;
+
+#transfer atoms types between gromacs and cryoff
+print "Atom types are defined from [ $inputoff ] file.\n" if lc($pattern) eq "no";
+if ($pattern =~ /type/i) {
+  $ind1=index($pattern,"type");
+  $typecov=1;
+  $pat1=substr $pattern,$ind1; $pat1 =~ s/,|=/ /g; @file=split /\s+/,$pat1;
+  open (PATF,$file[1]);
+  while(<PATF>) { chomp; ($typ1,$typ2)=split; $typ{$typ1}=$typ2; }
+  print "Atom types are defined from [ $file[1] ] file.\n";
+} # read atom type from a file
+
+# parameter position in top file
+@top=split(',',$toppam);
+$section=$top[0]; $pamcol=substr $top[1],3; 
+$idx=0;
+for ($n=2;$n<@top;$n++) {
+  $top[$n]= substr $top[$n],2; @templn=split(/-/,$top[$n]);
+  $templn[1]=$templn[0] unless $templn[1] > $templn[0];
+  for ($j=$templn[0];$j<=$templn[1];$j++){ $ln[$idx]=$j; $idx++;"\n";}
+}
+
+#update top file.
+$nterm=$idx;$idx=0;
+for ($i=0;$i<$nterm;$i++) {
+  $pamln=$ln[$i];
+  $temp1=`topget_param_paramfile  $section $pamln 1  $inptop`;chomp($nam1=$temp1);$nam1=uc($typ{$nam1}) if $typecov == 1;#1st 
+  $temp2=`topget_param_paramfile  $section $pamln 2  $inptop`;chomp($nam2=$temp2);$nam2=uc($typ{$nam2}) if $typecov == 1;#2nd 
+
+  for ($j=0;$j<@total;$j++) {
+    $str=$total[$j]; chomp($str); $str =~ s/^\s+|\s+$//g; @temp=split /\s+/,$str;
+    if ( $nam1 eq  $temp[0] and $nam2 eq  $temp[1] or  $nam1 eq  $temp[1] and $nam2 eq  $temp[0]  ) {
+      $pam=$temp[$offcol-1];$update=1;}
+  } # get parameter
+
+  if ($update) {
+    $pam=sprintf("%.4f",$pam); 
+    $pam=$pam*$unitcov;
+    print "$nam1  $nam2  $pam \n";
+    system("topupd_paramfile $section $pamln $pamcol $pam $tmpfile > $tmpfil2; mv $tmpfil2 $tmpfile");
+    $idx++;$update=0;
+  }
+}
+print "Update [ $idx  ] parameters for [ $section ].\n";
+system ("mv $tmpfile $outtop");

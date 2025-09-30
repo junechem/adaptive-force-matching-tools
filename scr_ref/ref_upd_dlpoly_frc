@@ -1,0 +1,101 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== ref_upd_dlpoly_frc - DL_POLY Force Integration ===\n\n";
+    print "PURPOSE:\n";
+    print "  Add DL_POLY forces to existing .ref files.\n";
+    print "  Essential for integrating DL_POLY MD forces into AFMTools workflows.\n\n";
+    print "USAGE:\n";
+    print "  ref_upd_dlpoly_frc REVCON_file [file.ref]\n";
+    print "  ref_upd_dlpoly_frc REVCON system.ref > updated.ref\n\n";
+    print "PARAMETERS:\n";
+    print "  REVCON_file - DL_POLY REVCON file containing forces\n";
+    print "  file.ref    - Existing .ref file (optional, reads from stdin if not provided)\n\n";
+    print "INPUT:\n";
+    print "  - DL_POLY REVCON file with force information\n";
+    print "  - Existing .ref file with coordinates and current forces\n\n";
+    print "OUTPUT:\n";
+    print "  - Updated .ref file with DL_POLY contributions added to stdout\n\n";
+    print "DETAILS:\n";
+    print "  - Integrates DL_POLY molecular dynamics forces\n";
+    print "  - Unit conversion: 1.0/418.4 (DL_POLY units → kcal/mol/Å)\n";
+    print "  - Adds DL_POLY contributions to existing forces in .ref file\n";
+    print "  - Preserves NetF and Torq entries unchanged\n";
+    print "  - Requires REVCON file with force data (levcfg=2)\n\n";
+    print "REVCON FILE FORMAT:\n";
+    print "  - DL_POLY restart/configuration file\n";
+    print "  - Must contain force information (levcfg=2)\n";
+    print "  - Header specifies configuration level and boundary conditions\n";
+    print "  - Force data follows coordinate information\n";
+    print "  - Each atom has 4 lines: name, coordinates, velocities, forces\n\n";
+    print "UNIT CONVERSION:\n";
+    print "  - DL_POLY forces in DL_POLY internal units\n";
+    print "  - Output forces in kcal/mol/Å\n";
+    print "  - Conversion factor: 1.0/418.4\n";
+    print "  - Standard conversion for DL_POLY to AFMTools units\n\n";
+    print "CONFIGURATION REQUIREMENTS:\n";
+    print "  - levcfg=2: Forces must be present in REVCON file\n";
+    print "  - Script dies if forces are not available\n";
+    print "  - Handles periodic boundary conditions (imcon > 0)\n";
+    print "  - Automatically skips PBC cell vectors if present\n\n";
+    print "EXAMPLES:\n";
+    print "  ref_upd_dlpoly_frc REVCON system.ref > updated.ref\n";
+    print "  cat initial.ref | ref_upd_dlpoly_frc REVCON > final.ref\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Generate initial: ref_gen_step1_cord molinfo coords.xyz > step1.ref\n";
+    print "  2. Run DL_POLY: dlpoly calculation → REVCON\n";
+    print "  3. Add forces: ref_upd_dlpoly_frc REVCON step1.ref > step2.ref\n";
+    print "  4. Calculate net: ref_upd_net step2.ref > final.ref\n\n";
+    print "ERROR HANDLING:\n";
+    print "  - Dies if REVCON file cannot be opened\n";
+    print "  - Dies if levcfg ≠ 2 (forces not present)\n";
+    print "  - Requires proper DL_POLY REVCON file format\n\n";
+    print "SEE ALSO:\n";
+    print "  ref_upd_net        - Calculate net forces and torques\n";
+    print "  ref_gen_step1_cord - Generate initial .ref files\n\n";
+}
+
+
+$conv=1.0/418.4;
+$bnk="     ";
+
+open(revcon,"$ARGV[0]") || die "can not open $ARGV[0]\n";shift;
+#take tempref file as <>;
+
+$_=<revcon>;$_=<revcon>;chomp;($levcfg,$imcon)=split;
+if ($imcon > 0) {$_=<revcon>;$_=<revcon>;$_=<revcon>;} #read pbc 
+die "need forces\n" unless ($levcfg == 2);
+
+$i=0;
+while(<revcon>){
+ 
+  $_=<revcon>;$_=<revcon>;
+  $_=<revcon>;chomp;($fxx[$i],$fyy[$i],$fzz[$i])=split;
+#  print STDERR $i.$bnk.$fxx[$i]*$conv."\n";
+  $i++;
+}
+
+$_=<>;print;
+$_=<>;print;
+$i=0;
+while(<>)
+{
+($nam,$xxx,$yyy,$zzz, $frx, $fry, $frz, $solv, $molnam)=split;
+unless (($nam eq "NetF") | ($nam eq "Torq")){
+
+print $nam.$bnk.$xxx.$bnk.$yyy.$bnk.$zzz.$bnk;
+printf "%12.7f$bnk%12.7f$bnk%12.7f",$frx+$fxx[$i]*$conv,$fry+$fyy[$i]*$conv,$frz+$fzz[$i]*$conv;
+print $bnk.$solv.$bnk.$molind.$molnam."\n";
+
+$i++;
+}
+else { print;}
+
+}
+
+
+

@@ -1,0 +1,227 @@
+#!/usr/bin/perl
+
+# off2top_molecule_param - Transfer bonded parameters from OFF to molecule definitions
+#
+# This script updates bonded parameters (bonds, angles, dihedrals) in molecule
+# definitions within topology files using parameter data from OFF files.
+
+if (@ARGV < 6 || $ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    print_help();
+    exit(@ARGV < 6 ? 1 : 0);
+}
+
+sub print_help {
+    print << 'EOF';
+
+NAME
+    off2top_molecule_param - Transfer bonded parameters from OFF to molecule definitions
+
+PURPOSE
+    This script updates bonded parameters (bonds, angles, dihedrals) in molecule
+    definitions within topology files using parameter data extracted from the
+    Molecular-Definition section of OFF files. It handles atom type mapping,
+    unit conversions, and extra column transfers for comprehensive parameter updates.
+
+USAGE
+    off2top_molecule_param OFF_source TOP_destination unit_conversion patterns input.off template.top output.top
+
+PARAMETERS
+    OFF_source      - Source specification in OFF file
+                     Format: molecule_name,column_number
+    TOP_destination - Target specification in topology file
+                     Format: molecule_name,section,column,line_ranges
+    unit_conversion - Unit conversion factor (e.g., 4.184 for kcal/mol→kJ/mol)
+    patterns        - Processing patterns (default, type=atmtype, extra:col=col)
+    input.off       - Input OFF file containing molecular parameters
+    template.top    - Input topology file to update
+    output.top      - Output topology file with updated parameters
+
+INPUT
+    • OFF file: Contains Molecular-Definition section with bonded parameters
+      organized by molecule with 'define' entries for bonds, angles, dihedrals
+    
+    • Topology file: GROMACS topology with molecule definitions containing
+      [bonds], [angles], [dihedrals] sections to be updated
+
+OUTPUT
+    • Updated topology file with new bonded parameters
+    • Progress messages showing parameter updates
+    • Preserves topology file structure and formatting
+
+OFF SOURCE FORMAT
+    molecule_name,column_number
+    - molecule_name: Name of molecule in OFF file (e.g., ALA7, SOL)
+    - column_number: Column containing parameter values (col3, col4, etc.)
+    
+    Example: ALA7,col4
+    Extracts parameters from column 4 of ALA7 molecule definition
+
+TOPOLOGY DESTINATION FORMAT
+    molecule_name,section,column,line_ranges
+    - molecule_name: Name of molecule in topology (e.g., ALA7, SOL)
+    - section: Molecule section to update (bonds, angles, dihedrals)
+    - column: Column number for parameters (col4, col5, etc.)
+    - line_ranges: Lines to update (ln1-90, ln1,ln5,ln10)
+    
+    Examples:
+    - ALA7,bonds,col4,ln1-90: Update bond parameters in lines 1-90
+    - SOL,angles,col5,ln1-20: Update angle parameters in lines 1-20
+
+PATTERNS
+    • default: Standard processing with direct atom type matching
+    
+    • type=atmtype: Use atom type mapping from external file
+      - Requires mapping file with format: topology_type off_type
+      - Enables translation between different naming conventions
+    
+    • extra:col5=col8: Copy additional columns during transfer
+      - Copies data from OFF column 5 to topology column 8
+      - Useful for transferring multiple parameter values
+      - Can specify multiple extra column transfers
+
+DETAILS
+    The script works by:
+    1. Extracting bonded parameters from OFF file using offget_intra
+    2. Building atom type mappings from OFF file or external mapping file
+    3. Processing extra column specifications if provided
+    4. Reading current topology structure using topget_param_moldef
+    5. Matching atom types between OFF and topology formats
+    6. Updating parameters using topupd_moldef for each specified line
+    7. Applying unit conversion factors
+    8. Handling extra column transfers if specified
+    
+    Parameter Matching:
+    - Uses atom type information to match bonded interactions
+    - Handles bonds (2 atoms), angles (3 atoms), dihedrals (4 atoms)
+    - Applies proper atom type translations
+    - Supports complex molecular topologies
+
+UNIT CONVERSIONS
+    Common conversion factors:
+    • 4.184: kcal/mol → kJ/mol (energy parameters)
+    • 1.0: Same units (distances, angles)
+    • 418.4: kcal/mol/rad² → kJ/mol/rad² (angle force constants)
+    
+    Applied as: final_parameter = off_parameter * unit_conversion
+
+EXAMPLES
+    off2top_molecule_param "ALA7,col4" "ALA7,bonds,col4,ln1-90" 4.184 default system.off template.top output.top
+        Transfer bond parameters with energy unit conversion
+    
+    off2top_molecule_param "SOL,col5" "SOL,angles,col5,ln1-20" 1.0 type=atmtype system.off template.top output.top
+        Transfer angle parameters with atom type mapping
+    
+    off2top_molecule_param "MOL,col4" "MOL,dihedrals,col7,ln1-50" 1.0 "extra:col5=col8" system.off template.top output.top
+        Transfer dihedral parameters with extra column copying
+
+INTEGRATION
+    This script integrates with AFM topology conversion workflows:
+    • Called by off2top with mol.bonded operations
+    • Works with offget_intra for parameter extraction
+    • Uses offget_atmtype for atom type information
+    • Uses topget_param_moldef and topupd_moldef for topology manipulation
+    • Supports complex molecular parameter transfers
+
+ATOM TYPE HANDLING
+    • Extracts atom type information from OFF files using offget_atmtype
+    • Builds mapping between atom indices and types
+    • Supports external atom type mapping files
+    • Handles different naming conventions between OFF and topology files
+    • Maintains consistency in bonded parameter assignments
+
+EXTRA COLUMN TRANSFERS
+    The extra:col=col pattern enables copying additional parameter data:
+    • Useful for transferring multiple values per interaction
+    • Common for dihedral parameters with multiple terms
+    • Format: extra:col5=col8 copies OFF column 5 to topology column 8
+    • Multiple extra transfers can be specified
+
+SAFETY FEATURES
+    - Temporary file usage prevents input file corruption
+    - Output overwrite protection
+    - Progress reporting for parameter updates
+    - Preserves topology file structure and formatting
+    - Handles missing parameters gracefully
+
+EOF
+}
+
+$offpam=$ARGV[0];$toppam=$ARGV[1];$unitcov=$ARGV[2];$pattern=$ARGV[3];
+$inputoff=$ARGV[4];$inptop = $ARGV[5]; $outtop = $ARGV[6];
+$tmpfile = "/tmp/temptop.$$"; $tmpfil2 = "/tmp/temptop2.$$";
+system ("cp $inptop $tmpfile");
+die "script will not overwrite existing output\n" if (-e $outtop);
+
+#get potential from off file.
+@off=split(',',$offpam);
+$molecule=$off[0]; $offcol=substr $off[1],3;
+@total=`offget_intra $inputoff $molecule`;
+
+#transfer atoms types between gromacs and cryoff
+if ($pattern =~ /type/i) {
+  $ind1=index($pattern,"type");
+  $pat1=substr $pattern,$ind1; $pat1 =~ s/,|=/ /g; @file=split /\s+/,$pat1;
+  open (PATF,$file[1]);
+  while(<PATF>) { chomp; ($typ1,$typ2)=split; $typ{$typ1}=$typ2; }
+  print "Atom types are defined from [ $file[1] ] file.\n";
+} else {
+  print "Atom types are defined from [ $inputoff ] file.\n";
+  @total2=`offget_atmtype $inputoff $molecule`;
+  for ($j=1;$j<@total2;$j++) {
+    $str=$total2[$j]; chomp($str); $str =~ s/^\s+|\s+$//g; @temp=split /\s+/,$str;
+    $typ{$temp[0]}=$temp[1]; } # get atom type  from off file
+}
+
+if ($pattern =~ /ext/i) {
+  $ind2=index($pattern,"ext");
+  $extra=1;
+  $pat2=substr $pattern,$ind2; $pat2 =~ s/,|=|:/ /g; @val=split /\s+/,$pat2;
+  $offcol2=substr $val[1],3; $topcol2=substr $val[2],3;
+}
+
+
+# parameter position in top file
+@top=split(',',$toppam);
+$molecule=$top[0];$section=$top[1];$pamcol=substr $top[2],3;
+$idx=0;
+for ($n=3;$n<@top;$n++) {
+  $top[$n]= substr $top[$n],2; @templn=split(/-/,$top[$n]);
+  $templn[1]=$templn[0] unless $templn[1] > $templn[0];
+  for ($j=$templn[0];$j<=$templn[1];$j++){ $ln[$idx]=$j; $idx++;"\n";}
+}
+
+#update top file.
+$nterm=$idx;$idx=0;
+for ($i=0;$i<$nterm;$i++) {
+  $pamln=$ln[$i];
+  $temp1=`topget_param_moldef $molecule  $section $pamln 1  $inptop`;chomp($nam1=$temp1);$nam1=uc($typ{$nam1});#1st 
+  $temp2=`topget_param_moldef $molecule  $section $pamln 2  $inptop`;chomp($nam2=$temp2);$nam2=uc($typ{$nam2});#2nd 
+  $temp3=`topget_param_moldef $molecule  $section $pamln 3  $inptop`;chomp($nam3=$temp3);$nam3=uc($typ{$nam3});
+  $temp4=`topget_param_moldef $molecule  $section $pamln 4  $inptop`;chomp($nam4=$temp4);$nam4=uc($typ{$nam4});
+  $case1=$nam1."_".$nam2; $case2=$nam2."_".$nam1; 
+  if ($section =~ /ang/i) { $case1=$nam1."_".$nam2."_".$nam3; $case2=$nam3."_".$nam2."_".$nam1; }
+  if ($section =~ /dih/i) { $case1=$nam1."_".$nam2."_".$nam3."_".$nam4; $case2=$nam4."_".$nam3."_".$nam2."_".$nam1; }
+  if ($extra) { $toppam=`topget_param_moldef $molecule $section $pamln $topcol2 $inptop`; chomp($toppam); }
+
+  for ($j=0;$j<@total;$j++) {
+    $str=$total[$j]; chomp($str); $str =~ s/^\s+|\s+$//g; @temp=split /\s+/,$str;
+    if ( $case1 eq  $temp[1] or $case2 eq $temp[1] ) { 
+      $update=1;
+      if ($extra) { $update=0 unless $temp[$offcol2-1]==$toppam;}
+    }
+
+    if ($update) {
+     # print "Here1\n";
+      $pam=$temp[$offcol-1];
+      $pam=$pam*$unitcov;
+      print "$nam1  $nam2  $pam \n" if ($section =~ /bond/i);
+      print "$nam1  $nam2  $nam3  $pam \n" if ($section =~ /ang/i);
+      print "$nam1  $nam2  $nam3  $nam4  $pam \n" if ($section =~ /dih/i);
+      system("topupd_moldef  $molecule $section $pamln $pamcol $pam $tmpfile > $tmpfil2; mv $tmpfil2 $tmpfile");
+      $idx++;$update=0;
+     # print "Here2\n";
+    }
+  }
+}
+print "Update [ $idx  ] parameters for [ $section ].\n";
+system ("mv $tmpfile $outtop");

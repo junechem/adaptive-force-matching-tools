@@ -1,0 +1,105 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== xyz_add_msite - Water M-site Addition ===\n\n";
+    print "PURPOSE:\n";
+    print "  Add M-site virtual atoms for BLYPSP-4F/WAIL water model.\n";
+    print "  Calculates M-site position for improved water electrostatics.\n\n";
+    print "USAGE:\n";
+    print "  xyz_add_msite OW_name HW1_name HW2_name M_name [file.xyz]\n";
+    print "  xyz_add_msite Ow Hw Hw Ew water.ref > water_with_msites.ref\n\n";
+    print "PARAMETERS:\n";
+    print "  OW_name  - Oxygen atom name (e.g., 'Ow', 'Omm')\n";
+    print "  HW1_name - First hydrogen atom name (e.g., 'Hw', 'Hmm')\n";
+    print "  HW2_name - Second hydrogen atom name (e.g., 'Hw', 'Hmm')\n";
+    print "  M_name   - M-site atom name (e.g., 'Ew', 'Emm')\n";
+    print "  file.xyz - Input file (optional, reads from stdin if not provided)\n\n";
+    print "INPUT:\n";
+    print "  - .ref or XYZ file with water molecules\n";
+    print "  - Water atoms must appear in OW-HW-HW sequence\n\n";
+    print "OUTPUT:\n";
+    print "  - File with added M-site virtual atoms written to stdout\n";
+    print "  - M-sites inserted after each complete water molecule\n\n";
+    print "DETAILS:\n";
+    print "  - Calculates M-site position using: M = 0.6×O + 0.2×(H1+H2)\n";
+    print "  - M-site positioned along bisector of HOH angle\n";
+    print "  - Provides better electrostatic representation for water\n";
+    print "  - Works on both XYZ and .ref file formats\n";
+    print "  - Preserves all original atom entries\n";
+    print "  - Skips non-matching atom sequences\n\n";
+    print "M-SITE CALCULATION:\n";
+    print "  Position formula: M = 0.6×O + 0.2×H1 + 0.2×H2\n";
+    print "  - 60% oxygen contribution (ratio2 = 0.6)\n";
+    print "  - 20% each hydrogen contribution (ratio = 0.2)\n";
+    print "  - Optimized for BLYPSP-4F/WAIL water model\n\n";
+    print "WATER MODEL TYPES:\n";
+    print "  QM Water:  Ow/Hw atoms → Ew M-sites\n";
+    print "  MM Water:  Omm/Hmm atoms → Emm M-sites\n";
+    print "  Different types can be processed separately\n\n";
+    print "EXAMPLES:\n";
+    print "  xyz_add_msite Ow Hw Hw Ew water.ref > water_with_msites.ref\n";
+    print "  xyz_add_msite Omm Hmm Hmm Emm system.ref > enhanced.ref\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  # Add M-sites for different water types\n";
+    print "  xyz_add_msite Ow Hw Hw Ew system.ref | ref_fix_msite Ew |\n";
+    print "  xyz_add_msite Omm Hmm Hmm Emm | ref_fix_msite Emm |\n";
+    print "  ref_fix_linenu > final.ref\n\n";
+    print "ATOM SEQUENCE REQUIREMENT:\n";
+    print "  - Water atoms must appear consecutively: OW-HW1-HW2\n";
+    print "  - Script searches for OW, then expects next two atoms to be HW\n";
+    print "  - Non-matching sequences are skipped without error\n";
+    print "  - Order is critical for proper M-site calculation\n\n";
+    print "POST-PROCESSING:\n";
+    print "  - Use ref_fix_msite to zero M-site forces\n";
+    print "  - Use ref_fix_linenu to correct atom count\n";
+    print "  - M-sites should have zero forces in final calculations\n\n";
+    print "SEE ALSO:\n";
+    print "  ref_fix_msite  - Set M-site forces to zero\n";
+    print "  ref_fix_linenu - Fix atom count in files\n\n";
+}
+
+
+$atm1=$ARGV[0];shift;
+$atm2=$ARGV[0];shift;
+$atm3=$ARGV[0];shift;
+$msite=$ARGV[0];shift;
+
+$ratio=0.20;
+$ratio2=1.0-2.0*$ratio;
+
+while(<>)
+{
+
+print;
+($name,$xxx,$yyy,$zzz)=split;
+
+if ($name eq $atm1) {
+$xxo=$xxx;$yyo=$yyy;$zzo=$zzz;
+
+$_=<>; print;
+($name,$xxx,$yyy,$zzz)=split;
+#die "expect $atm2\n" unless $name eq $atm2;
+next unless $name eq $atm2;
+$xh1=$xxx;$yh1=$yyy;$zh1=$zzz;
+
+$_=<>; print;
+($name,$xxx,$yyy,$zzz)=split;
+#die "expect $atm3\n" unless $name eq $atm3;
+next unless $name eq $atm3;
+$xh2=$xxx;$yh2=$yyy;$zh2=$zzz;
+
+$xxm=$xxo*$ratio2+($xh1+$xh2)*$ratio;
+$yym=$yyo*$ratio2+($yh1+$yh2)*$ratio;
+$zzm=$zzo*$ratio2+($zh1+$zh2)*$ratio;
+
+printf "$msite    %12.7f%12.7f%12.7f\n", $xxm,$yym,$zzm;
+}
+
+}
+
+
+

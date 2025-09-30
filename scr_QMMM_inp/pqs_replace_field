@@ -1,0 +1,97 @@
+#!/usr/bin/perl
+#This routine intends to update some keyword in PQS input file, mainly the file name for geometry.
+#The records in the same line are separated by blank.
+#
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== pqs_replace_field - PQS Field Replacement Utility ===\n\n";
+  print "PURPOSE:\n";
+  print "  Updates space-separated fields in PQS input files by replacing matching fields.\n";
+  print "  Commonly used to update filenames or parameters in PQS directives.\n\n";
+  print "USAGE:\n";
+  print "  pqs_replace_field keyword newvalue [pqs.inp]\n";
+  print "  pqs_replace_field \"FILE\" \"new_coords.xyz\" template.inp > updated.inp\n\n";
+  print "PARAMETERS:\n";
+  print "  keyword   - Text pattern to search for in space-separated lines\n";
+  print "  newvalue  - Replacement value for matching field\n";
+  print "  pqs.inp   - PQS input file (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - PQS input file with space-separated directive lines\n";
+  print "  - Lines containing the keyword will be processed\n\n";
+  print "OUTPUT:\n";
+  print "  - Modified PQS input written to stdout with updated fields\n";
+  print "  - Only lines containing the keyword are modified\n\n";
+  print "DETAILS:\n";
+  print "  - Similar to molpro_replace_field but for space-separated format\n";
+  print "  - Processes lines containing the keyword\n";
+  print "  - Splits lines by whitespace, replaces matching fields\n";
+  print "  - Reconstructs lines with proper space separation\n";
+  print "  - Preserves all other lines unchanged\n";
+  print "  - Case-sensitive keyword matching\n\n";
+  print "COMMON PQS DIRECTIVES:\n";
+  print "  GEOM=pqs FILE=coords.xyz\n";
+  print "  pntq charges.pntq\n";
+  print "  BASIS FILE=basis.pqs\n";
+  print "  GUESS READ FILE=orbitals.dat\n\n";
+  print "FIELD REPLACEMENT LOGIC:\n";
+  print "  - Searches for fields containing the keyword\n";
+  print "  - Replaces entire field with newvalue\n";
+  print "  - Example: \"FILE=old.xyz\" becomes \"new_coords.xyz\"\n";
+  print "  - Multiple fields can be replaced in same line\n\n";
+  print "EXAMPLES:\n";
+  print "  pqs_replace_field \"FILE\" \"new_coords.xyz\" template.inp > updated.inp\n";
+  print "  pqs_replace_field \"pntq\" \"new_charges.pntq\" main.inp > final.inp\n";
+  print "  pqs_replace_field \"BASIS\" \"6-31G\" < input.inp > output.inp\n\n";
+  print "TYPICAL WORKFLOW:\n";
+  print "  1. Generate coordinates: pxyz_pqs_gen_xyz nucinfo qm.pxyz > coords.xyz\n";
+  print "  2. Generate charges: pxyz_pqs_gen_pntq chginfo mm.pxyz > charges.pntq\n";
+  print "  3. Update coord ref: pqs_replace_field \"FILE\" \"coords.xyz\" template.inp > step1.inp\n";
+  print "  4. Update charge ref: pqs_replace_field \"pntq\" \"charges.pntq\" step1.inp > final.inp\n\n";
+  print "PROCESSING EXAMPLE:\n";
+  print "  Input line:  \"GEOM=pqs FILE=template.xyz BASIS=STO-3G\"\n";
+  print "  Command:     pqs_replace_field \"FILE\" \"real_coords.xyz\"\n";
+  print "  Output line: \"GEOM=pqs real_coords.xyz BASIS=STO-3G\"\n\n";
+  print "FIELD MATCHING:\n";
+  print "  - Searches for keyword anywhere in field\n";
+  print "  - \"FILE=old.xyz\" matches keyword \"FILE\"\n";
+  print "  - \"pntq\" matches keyword \"pntq\"\n";
+  print "  - Entire matching field gets replaced\n\n";
+  print "SPACE HANDLING:\n";
+  print "  - Uses double spaces for reconstruction\n";
+  print "  - Preserves readability of PQS input format\n";
+  print "  - May add trailing spaces (cosmetic only)\n\n";
+  print "LIMITATIONS:\n";
+  print "  - Only processes space-separated lines\n";
+  print "  - Case-sensitive keyword matching\n";
+  print "  - Replaces entire field, not partial content\n";
+  print "  - No regex support in keyword matching\n";
+  print "  - May add extra trailing spaces\n\n";
+  print "SEE ALSO:\n";
+  print "  pxyz_pqs_gen_xyz     - Generate XYZ coordinate files for PQS\n";
+  print "  pxyz_pqs_gen_pntq    - Generate point charge files for PQS\n";
+  print "  molpro_replace_field - Similar utility for comma-separated Molpro files\n\n";
+}
+
+$bnk="  ";
+$keyword=$ARGV[0];shift;
+$val=$ARGV[0];shift;
+$buf="";
+while (<>)
+{
+if ($_ =~ /$keyword/ )
+{
+@record=split;
+$nrec=@record;
+for ($i=0;$i<$nrec;$i++){
+if ($record[$i] =~ /$keyword/){ $record[$i]=$val;}
+$buf.=$record[$i].$bnk;
+}
+print $buf."\n";}
+else {print;}
+}
+
+

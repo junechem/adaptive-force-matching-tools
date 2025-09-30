@@ -1,0 +1,108 @@
+#!/usr/bin/perl
+
+# offget_frc.v2.6 - Extract force data from OFF files (version 2.6 format)
+#
+# Version-specific script for extracting force components from OFF files with
+# RefIdx sections using the column layout from AFMTools version 2.6.
+
+if (@ARGV < 1 || $ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    print_help();
+    exit(@ARGV < 1 ? 1 : 0);
+}
+
+sub print_help {
+    print << 'EOF';
+
+NAME
+    offget_frc.v2.6 - Extract force data from OFF files (version 2.6 format)
+
+PURPOSE
+    This script extracts force components (X, Y, Z) from OFF files containing
+    RefIdx sections using the column layout from AFMTools version 2.6. This
+    version differs from newer formats in the positioning of force data columns.
+
+USAGE
+    offget_frc.v2.6 file.off [force_type] [interaction_filter]
+
+PARAMETERS
+    file.off           - Input OFF file containing RefIdx section (v2.6 format)
+    force_type         - Type of forces to extract (default: "fit")
+                        • "ref": Reference forces from QM calculations
+                        • "fit": Fitted forces from force field
+                        • "dif": Force differences (ref - fit)
+    interaction_filter - Optional filter for specific interactions
+
+INPUT
+    • OFF file with RefIdx section (version 2.6 format)
+    • RefIdx entries with version 2.6 column layout
+    • Force data positioned 7, 6, and 5 columns from end
+
+OUTPUT
+    • Three-column force data: "ForceX  ForceY  ForceZ"
+    • One line per reference point/interaction
+    • Forces filtered by interaction type if specified
+
+DETAILS
+    Version 2.6 specific column positions:
+    - Reference forces: 7th-to-last column
+    - Fitted forces: 6th-to-last column  
+    - Force differences: 5th-to-last column
+
+    This differs from newer versions which use positions 4, 3, and 2
+    columns from the end, reflecting changes in OFF file format over time.
+
+EXAMPLES
+    offget_frc.v2.6 system_v26.off
+        Extract fitted forces using v2.6 column layout
+
+    offget_frc.v2.6 system_v26.off ref
+        Extract reference forces using v2.6 format
+
+COMPATIBILITY
+    Use this version when working with:
+    • AFMTools version 2.6 output files
+    • Legacy OFF files with older column layouts
+    • Historical force field optimization data
+
+EOF
+}
+
+$off=$ARGV[0];shift;
+$which=$ARGV[0];shift;
+$inter=$ARGV[0];shift;
+$which="fit" unless defined($which);
+
+open (REF,$off);
+while(<REF>)
+{
+if (/RefIdx/) {
+$ind=1;
+
+while ($ind >0 ){
+
+  $_=<REF>;chomp;
+  @nrec=split;
+  $ind=substr($nrec[1],0,1);
+ # print $_."\n";
+  $prt=1;
+  if ( defined($inter) ){ $prt=0 unless $nrec[1] =~ /$inter/i; }
+  $fx=$nrec[@nrec-7] if $which =~ /ref/i;
+  $fx=$nrec[@nrec-6] if $which =~ /fit/i;
+  $fx=$nrec[@nrec-5] if $which =~ /dif/i;
+  for ($i=0;$i<2;$i++) {
+    $_=<REF>;chomp;
+    @nrec=split;
+    $f[$i]=$nrec[@nrec-7] if $which =~ /ref/i;
+    $f[$i]=$nrec[@nrec-6] if $which =~ /fit/i;
+    $f[$i]=$nrec[@nrec-5] if $which =~ /dif/i;
+  }
+
+#  print $prt."\n";
+  print $fx."  ".$f[0]."   ".$f[1]."\n" if $ind >0 and $prt==1;
+  $_=<REF>;
+}
+
+}
+}
+
+

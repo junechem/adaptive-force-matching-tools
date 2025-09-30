@@ -1,0 +1,63 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== molpro_extract_xyz - Molpro Coordinate Extraction ===\n\n";
+    print "PURPOSE:\n";
+    print "  Extract atomic coordinates from Molpro output files.\n";
+    print "  Converts coordinates from Bohr to Angstrom for standard use.\n\n";
+    print "USAGE:\n";
+    print "  molpro_extract_xyz molpro_output\n";
+    print "  molpro_extract_xyz calculation.out > final_geometry.xyz\n\n";
+    print "PARAMETERS:\n";
+    print "  molpro_output - Molpro output files with geometry information\n\n";
+    print "INPUT:\n";
+    print "  - Molpro output files with coordinate information\n";
+    print "  - Must contain 'ATOMIC COORDINATES' section\n\n";
+    print "OUTPUT:\n";
+    print "  - Standard XYZ format coordinates written to stdout\n";
+    print "  - Format: atom_count\\ncomment\\nelement x y z (per atom)\n\n";
+    print "DETAILS:\n";
+    print "  - Searches for 'ATOMIC COORDINATES' section in Molpro output\n";
+    print "  - Converts coordinates from Bohr to Angstrom (×0.5291772083)\n";
+    print "  - Outputs in standard XYZ format with atom count header\n";
+    print "  - Extracts element symbols and coordinates for each atom\n";
+    print "  - Useful for extracting optimized geometries from calculations\n\n";
+    print "UNIT CONVERSION:\n";
+    print "  - Input: Bohr (atomic units)\n";
+    print "  - Output: Angstrom\n";
+    print "  - Conversion factor: 0.5291772083\n\n";
+    print "EXAMPLES:\n";
+    print "  molpro_extract_xyz calculation.out > final_geometry.xyz\n";
+    print "  molpro_extract_xyz opt.out | ref_gen_step1_cord molinfo > system.ref\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Run Molpro optimization: molpro input.inp > output.out\n";
+    print "  2. Extract final geometry: molpro_extract_xyz output.out > final.xyz\n";
+    print "  3. Use for further calculations or analysis\n\n";
+    print "SEE ALSO:\n";
+    print "  molpro_extract_grad - Extract gradients from Molpro output\n";
+    print "  ref_gen_step1_cord  - Generate .ref files from coordinates\n\n";
+}
+
+
+$conv=0.5291772083;
+while(<>)
+{
+if (/ATOMIC COORDINATES/) {
+$_=<>;$_=<>;$_=<>;
+$ind=1;
+$natm=-1;
+while($ind>0){ $_=<>; $natm++;
+($ind, $name, $chg, $xxx, $yyy,$zzz)=split;
+$xxx*=$conv;$yyy*=$conv;$zzz*=$conv;
+$buf.=$name."  ".$xxx."  ".$yyy."   ".$zzz."\n" if $ind>0;
+}
+print $natm."\n"."comment\n";
+print $buf;
+}
+}
+
+

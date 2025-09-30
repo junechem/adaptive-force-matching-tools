@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== pqs_extract_frc - PQS Force Extraction ===\n\n";
+    print "PURPOSE:\n";
+    print "  Extract forces from PQS output files.\n";
+    print "  Essential for preparing PQS QM forces for integration into .ref files.\n\n";
+    print "USAGE:\n";
+    print "  pqs_extract_frc PQS_output\n";
+    print "  pqs_extract_frc calculation.out > forces.dat\n\n";
+    print "PARAMETERS:\n";
+    print "  PQS_output - PQS output files with force calculations\n\n";
+    print "INPUT:\n";
+    print "  - PQS output files with force calculations\n";
+    print "  - Must contain 'force-x' keyword section\n\n";
+    print "OUTPUT:\n";
+    print "  - Forces written to stdout with formatting markers\n";
+    print "  - Format: wrapped in 'Gradient from pqs.out{' ... '} end.'\n\n";
+    print "DETAILS:\n";
+    print "  - Searches for 'force-x' keyword in PQS output\n";
+    print "  - Extracts force data from formatted PQS output sections\n";
+    print "  - Processes lines until 'Sum' line is encountered\n";
+    print "  - Strips first 10 characters from each force line\n";
+    print "  - Use with ref_upd_pqs_frc for integration into AFMTools workflow\n\n";
+    print "PQS OUTPUT FORMAT:\n";
+    print "  - PQS uses specific formatting for force output\n";
+    print "  - Forces appear after 'force-x' keyword\n";
+    print "  - Each atom's forces on separate lines\n";
+    print "  - Section ends with 'Sum' line\n\n";
+    print "EXAMPLES:\n";
+    print "  pqs_extract_frc calculation.out > forces.dat\n";
+    print "  pqs_extract_frc qm_calc.out | ref_upd_pqs_frc /dev/stdin system.ref > updated.ref\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Run PQS calculation: pqs < input.inp > output.out\n";
+    print "  2. Extract forces: pqs_extract_frc output.out > forces.dat\n";
+    print "  3. Add to .ref file: ref_upd_pqs_frc forces.dat system.ref > final.ref\n\n";
+    print "SEE ALSO:\n";
+    print "  pqs_extract_xyz - Extract coordinates from PQS output\n";
+    print "  ref_upd_pqs_frc - Add PQS forces to .ref files\n\n";
+}
+
+print "Gradient from pqs.out{\n";
+while(<>)
+{
+if (/force-x/)
+{$_=<>;
+while(<>) {
+ print substr $_,10 unless (/Sum/);
+ last if (/Sum/);
+}
+}
+}
+
+print "} end.\n";
+
+

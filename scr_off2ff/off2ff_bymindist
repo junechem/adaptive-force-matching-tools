@@ -1,0 +1,120 @@
+#!/usr/bin/perl
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== off2ff_bymindist - Force Field Manager by Minimum Distance Criteria ===\n\n";
+    print "PURPOSE:\n";
+    print "  Add, remove, or enable force field terms based on minimum interatomic distances.\n";
+    print "  Essential for managing parameters based on molecular geometry and contact analysis.\n\n";
+    print "USAGE:\n";
+    print "  off2ff_bymindist condition action off_param ff_param input.off input.ff output.ff\n\n";
+    print "PARAMETERS:\n";
+    print "  condition  - Distance criteria: 'SECTION,OPERATOR,VALUE'\n";
+    print "  action     - Operation: 'add', 'rm' (remove), or 'enable'\n";
+    print "  off_param  - OFF parameter specification for distance extraction\n";
+    print "  ff_param   - FF section to modify (e.g., 'VDW', 'BONDS')\n";
+    print "  input.off  - OFF file containing Inter-Potential with distance data\n";
+    print "  input.ff   - Input force field file to modify\n";
+    print "  output.ff  - Output force field file\n\n";
+    print "INPUT:\n";
+    print "  - OFF file with Inter-Potential section containing 'Min' distance markers\n";
+    print "  - Force field file with target section for modifications\n";
+    print "  - Distance data associated with atom pair interactions\n\n";
+    print "OUTPUT:\n";
+    print "  - Modified force field file with updated parameters\n";
+    print "  - Progress messages showing actions taken on atom pairs\n";
+    print "  - Summary count of modified terms\n\n";
+    print "DETAILS:\n";
+    print "  CONDITION FORMAT:\n";
+    print "    'SECTION,OPERATOR,VALUE' where:\n";
+    print "    - SECTION: Not directly used (legacy parameter)\n";
+    print "    - OPERATOR: gt, lt, ge, le (greater than, less than, etc.)\n";
+    print "    - VALUE: Distance threshold in Angstroms\n\n";
+    print "  DISTANCE OPERATORS:\n";
+    print "    gt  - Greater than (distance > value)\n";
+    print "    lt  - Less than (distance < value)\n";
+    print "    ge  - Greater than or equal (distance >= value)\n";
+    print "    le  - Less than or equal (distance <= value)\n\n";
+    print "  WORKFLOW:\n";
+    print "    1. Extracts inter-potential data using offget_inter\n";
+    print "    2. Identifies 'Min' distance values for each atom pair\n";
+    print "    3. Applies distance criteria to filter atom pairs\n";
+    print "    4. Performs specified action on matching pairs\n";
+    print "    5. Updates force field using ffaddremtermbynam\n\n";
+    print "EXAMPLES:\n";
+    print "  off2ff_bymindist 'DIST,lt,2.5' rm 'EXP' 'VDW' sys.off input.ff output.ff\n";
+    print "    Removes VDW terms for atom pairs with minimum distance < 2.5 A\n\n";
+    print "  off2ff_bymindist 'DIST,gt,5.0' add 'POW' 'LONGRANGE' sys.off in.ff out.ff\n";
+    print "    Adds long-range terms for pairs with minimum distance > 5.0 A\n\n";
+    print "  off2ff_bymindist 'DIST,le,1.8' enable 'BONDS' 'BONDS' sys.off in.ff out.ff\n";
+    print "    Enables bond terms for pairs with minimum distance <= 1.8 A\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Analyze molecular structure and identify contact distances\n";
+    print "  2. Determine appropriate distance thresholds for parameter types\n";
+    print "  3. Remove inappropriate parameters: off2ff_bymindist 'X,gt,10.0' rm\n";
+    print "  4. Add necessary parameters: off2ff_bymindist 'X,lt,2.0' add\n";
+    print "  5. Test and validate modified force field\n\n";
+    print "DISTANCE ANALYSIS:\n";
+    print "  - Uses 'Min' markers from OFF Inter-Potential section\n";
+    print "  - Minimum distance represents closest approach between atom types\n";
+    print "  - Useful for identifying bonded vs. non-bonded interactions\n";
+    print "  - Helps prevent parameter conflicts in crowded regions\n\n";
+    print "PARAMETER MANAGEMENT:\n";
+    print "  - Integrates with ffaddremtermbynam for actual modifications\n";
+    print "  - Maintains proper force field section structure\n";
+    print "  - Updates record counts automatically\n";
+    print "  - Preserves disabled parameters when using 'rm' action\n\n";
+    print "ERROR CONDITIONS:\n";
+    print "  - Requires exactly 7 arguments\n";
+    print "  - Needs valid OFF file with Inter-Potential section\n";
+    print "  - Distance data must contain 'Min' markers\n\n";
+    print "SEE ALSO:\n";
+    print "  off2ff_byvalue     - Filter by parameter values instead of distances\n";
+    print "  offget_inter       - Extract intermolecular parameters\n";
+    print "  ffaddremtermbynam  - Core parameter modification tool\n\n";
+}
+
+$bnk="  ";
+$condition=$ARGV[0];$action=$ARGV[1];$offpam=$ARGV[2];$ffpam=$ARGV[3];
+$inputoff=$ARGV[4];$inpff=$ARGV[5];$outff=$ARGV[6];
+$tmpfile = "/tmp/tempoff2ff.$$"; $tmpfil2 = "/tmp/tempoff2f2.$$";
+system ("cp $inpff $tmpfile");
+
+#get potential from off file.
+@total=`offget_inter $inputoff $offpam`;
+
+#condition
+@cond=split(',',$condition); 
+$keyword=$cond[0]; 
+$operator=$cond[1];
+$val0=$cond[2];
+
+#ff parameter
+@ff=split(',',$ffpam); #maybe usefull afterwards.
+
+$buf=""; $idx=0;
+for ($ip=0;$ip<@total;$ip++) {
+  $str=$total[$ip];
+  chomp($str);
+  $str =~ s/^\s+|\s+$//g;
+  @ipot=split /\s+/,$str;
+  for ($k=0;$k<@ipot;$k++) { $dist=$ipot[$k+1] if $ipot[$k] eq "Min"; }
+  $rm=0;
+  $rm=1 if ( $operator eq "gt" and  $dist > $val0);
+  $rm=1 if ( $operator eq "lt" and  $dist < $val0);
+  $rm=1 if ( $operator eq "ge" and  $dist >= $val0);
+  $rm=1 if ( $operator eq "le" and  $dist <= $val0);
+  if ($rm) {
+    $nam1=$ipot[0];$nam2=$ipot[1];
+    $potential=$ff[0].",".$nam1.",".$nam2;
+    print $action."   ".$potential."\n";
+    system("ffaddremtermbynam  $action  $potential  $tmpfile > $tmpfil2; mv $tmpfil2 $tmpfile" );
+    $idx++;
+  }  
+}
+print  "$action [ $idx ] terms from $ff[0].\n";
+system ("mv $tmpfile $outff")

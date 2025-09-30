@@ -1,0 +1,92 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== ref_fix_msite - M-site Force Corrector ===\n\n";
+    print "PURPOSE:\n";
+    print "  Set forces to zero for water M-site atoms (virtual sites).\n";
+    print "  Handles special treatment of water model dummy atoms.\n\n";
+    print "USAGE:\n";
+    print "  ref_fix_msite M_site_name [file.ref]\n";
+    print "  ref_fix_msite MW water_system.ref > corrected.ref\n\n";
+    print "PARAMETERS:\n";
+    print "  M_site_name - Name of M-site atoms (e.g., 'MW', 'OM', 'Ew', 'Emm')\n";
+    print "  file.ref    - Reference file (optional, reads from stdin if not provided)\n\n";
+    print "INPUT:\n";
+    print "  - .ref files containing M-site atoms\n";
+    print "  - Files with M-site atoms that may have non-zero forces\n\n";
+    print "OUTPUT:\n";
+    print "  - .ref file with zeroed forces for M-site atoms written to stdout\n\n";
+    print "DETAILS:\n";
+    print "  - M-sites are virtual sites that should not have forces applied\n";
+    print "  - Sets all force components (fx, fy, fz) to 0.0 for specified M-sites\n";
+    print "  - Preserves all other atom data unchanged\n";
+    print "  - Essential for proper water model behavior\n";
+    print "  - Maintains molecular names and solvation flags\n\n";
+    print "M-SITE TYPES:\n";
+    print "  - MW: Generic water M-site\n";
+    print "  - Ew: QM water M-site (BLYPSP-4F/WAIL model)\n";
+    print "  - Emm: MM water M-site\n";
+    print "  - OM: Alternative M-site naming\n\n";
+    print "VIRTUAL SITE CONCEPT:\n";
+    print "  - M-sites are dummy atoms with no mass\n";
+    print "  - Used for improved electrostatic representation\n";
+    print "  - Should not contribute to forces or dynamics\n";
+    print "  - Must have zero forces in final calculations\n\n";
+    print "EXAMPLES:\n";
+    print "  ref_fix_msite MW water_system.ref > corrected.ref\n";
+    print "  ref_fix_msite Ew qm_water.ref > fixed.ref\n";
+    print "  cat system.ref | ref_fix_msite Emm > final.ref\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  After adding M-sites:\n";
+    print "  1. xyz_add_msite Ow Hw Hw Ew system.ref > with_msites.ref\n";
+    print "  2. ref_fix_msite Ew with_msites.ref > corrected.ref\n";
+    print "  3. ref_fix_linenu corrected.ref > final.ref\n\n";
+    print "MULTI-WATER WORKFLOW:\n";
+    print "  For systems with multiple water types:\n";
+    print "  xyz_add_msite Ow Hw Hw Ew system.ref | ref_fix_msite Ew |\n";
+    print "  xyz_add_msite Omm Hmm Hmm Emm | ref_fix_msite Emm |\n";
+    print "  ref_fix_linenu > final.ref\n\n";
+    print "FORCE ZEROING:\n";
+    print "  - Identifies atoms by name matching M_site_name\n";
+    print "  - Sets force components: fx=0.0, fy=0.0, fz=0.0\n";
+    print "  - Preserves coordinates and other properties\n";
+    print "  - Maintains .ref file formatting\n\n";
+    print "SEE ALSO:\n";
+    print "  xyz_add_msite   - Add M-sites to water molecules\n";
+    print "  ref_fix_linenu  - Fix atom count after M-site addition\n\n";
+}
+
+
+$msite=$ARGV[0];shift;
+$bnk="     ";
+
+$_=<>;print;
+$_=<>;print;
+
+$_=<>;print;
+($nam,$xxx,$yyy,$zzz, $frx, $fry, $frz,$solv,$molnam)=split;
+
+while(<>)
+{
+
+($nam)=split;
+
+if ($nam eq $msite) {
+chomp;
+$_ =~ s/\s+$//;
+$frx=0.0;$fry=0.0;$frz=0.0;
+print $_.$bnk.$frx.$bnk.$fry.$bnk.$frz.$bnk.$solv.$bnk.$molnam."\n";
+}
+else
+{ print;}
+
+($nam,$xxx,$yyy,$zzz, $frx, $fry, $frz,$solv,$molnam)=split;
+
+}
+
+
+

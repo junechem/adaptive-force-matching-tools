@@ -1,0 +1,89 @@
+#!/usr/bin/perl
+use warnings;
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== offget_charge - Charge Extractor and Calculator ===\n\n";
+    print "PURPOSE:\n";
+    print "  Extract charges from OFF files and calculate individual charges from charge products.\n";
+    print "  Essential for handling charge assignments in force field conversions.\n\n";
+    print "USAGE:\n";
+    print "  offget_charge COU,atm1,divisor,ln1,ln2,ln3 file.off\n";
+    print "  offget_charge COU,atm2,0.6645,ln3,ln5,ln7 system.off\n\n";
+    print "PARAMETERS:\n";
+    print "  COU       - Coulomb parameter section identifier\n";
+    print "  atm1/atm2 - Use first (atm1) or second (atm2) atom type\n";
+    print "  divisor   - Charge divisor for product calculations\n";
+    print "  ln1,ln2.. - Line numbers to process from COU section\n";
+    print "  file.off  - Input OFF file\n\n";
+    print "INPUT:\n";
+    print "  - OFF file with COU section containing charge products\n";
+    print "  - Charge products in parameter column 3\n";
+    print "  - Atom type pairs in columns 0 and 1\n\n";
+    print "OUTPUT:\n";
+    print "  - Charge calculation results to stdout:\n";
+    print "    ATM1 ATM2 charge_product divisor calculated_charge\n";
+    print "  - Summary to stderr: number of charges processed\n\n";
+    print "DETAILS:\n";
+    print "  - Reads COU parameters from specified line numbers\n";
+    print "  - Calculates individual charges from charge products\n";
+    print "  - Uses getcharge utility for mathematical operations\n";
+    print "  - Supports both atom type selection (atm1/atm2)\n";
+    print "  - Processes charge products in column 3 (index 2)\n\n";
+    print "CHARGE CALCULATION:\n";
+    print "  - charge_product = q1 * q2 (for atom pair)\n";
+    print "  - individual_charge = charge_product / divisor\n";
+    print "  - Divisor can be numeric value or special keywords\n";
+    print "  - Uses getcharge for sqrt operations if needed\n\n";
+    print "EXAMPLES:\n";
+    print "  offget_charge COU,atm1,0.6645,ln3,ln5,ln7 system.off\n";
+    print "  offget_charge COU,atm2,-0.3322,ln1-20 charges.off\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Identify charge products: Examine COU section in OFF file\n";
+    print "  2. Calculate charges: offget_charge specification input.off\n";
+    print "  3. Validate results: Check charge conservation and reasonableness\n";
+    print "  4. Apply charges: Use in off2ff_charge operations\n\n";
+    print "OUTPUT FORMAT:\n";
+    print "  Original parameter line (echoed)\n";
+    print "  ATM1  ATM2  product  divisor  charge\n";
+    print "  C1    O1    0.18953  0.6645   0.28523\n\n";
+    print "SEE ALSO:\n";
+    print "  getcharge          - Perform charge calculations\n";
+    print "  off2ff_charge      - Apply charges in conversions\n";
+    print "  offget_inter       - Extract other parameter types\n\n";
+}
+
+
+$offchg=$ARGV[0];shift;
+$inputoff=$ARGV[0];
+
+@off=split(',',$offchg); 
+$keyword=$off[0];
+$atm=0;
+$atm=1 if lc($off[1]) eq "atm2";
+$chgdiv=$off[2];
+$pamcol=3;
+
+$getpot=$keyword;
+for ($n=3;$n<@off;$n++) { $getpot=$getpot.",".$off[$n]; }
+@total=`offget_inter $inputoff $getpot`;
+
+$idx=0;
+for ($j=0;$j<@total;$j++)
+{
+  $str=$total[$j];
+  print $str;
+  chomp($str); $str =~ s/^\s+|\s+$//g;
+  @ipot=split /\s+/,$str;
+  $atm1=$ipot[$atm];$atm2=$ipot[1];
+  $atm2=$ipot[0] if $atm == 1;
+  $chgprod=$ipot[$pamcol];
+  $chg=`getcharge  $chgprod $chgdiv`;chomp($chg);
+  print "$atm1    $atm2    $chgprod    $chgdiv    $chg \n";
+  $idx++;
+}
+
+print STDERR "Get [ $idx ] atom charges from [ $inputoff ] file.\n";

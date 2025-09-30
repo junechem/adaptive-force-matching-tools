@@ -1,0 +1,107 @@
+#!/usr/bin/perl
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== ffupdbynum - Force Field Parameter Updater by Position ===\n\n";
+    print "PURPOSE:\n";
+    print "  Update specific parameter values in force field files by line and column position.\n";
+    print "  Maintains underscore suffixes (_) when present and preserves file formatting.\n\n";
+    print "USAGE:\n";
+    print "  ffupdbynum keyword line_number column_number new_value < input.ff > output.ff\n";
+    print "  ffupdbynum keyword line_number column_number new_value input.ff > output.ff\n\n";
+    print "PARAMETERS:\n";
+    print "  keyword       - Section keyword in force field (BONDS, ANGLES, DIHEDRALS, etc.)\n";
+    print "  line_number   - Line number within the section (1-based indexing)\n";
+    print "  column_number - Column number within the line (1-based indexing)\n";
+    print "  new_value     - New parameter value to insert\n";
+    print "  input.ff      - Input force field file (optional, can use stdin)\n\n";
+    print "INPUT:\n";
+    print "  - Force field file with bracketed sections [KEYWORD]\n";
+    print "  - Section header contains record count after keyword\n";
+    print "  - Parameter lines with space-separated values\n";
+    print "  - May contain underscore suffixes for fitting flags\n\n";
+    print "OUTPUT:\n";
+    print "  - Modified force field file to stdout\n";
+    print "  - Preserves all formatting except updated parameter\n";
+    print "  - Maintains underscore suffixes when present\n";
+    print "  - All other sections pass through unchanged\n\n";
+    print "DETAILS:\n";
+    print "  - Locates section by case-insensitive keyword matching\n";
+    print "  - Uses 1-based indexing for both lines and columns\n";
+    print "  - Preserves underscore suffixes (_) indicating fitting parameters\n";
+    print "  - Dies with error if line number exceeds section length\n";
+    print "  - Maintains original spacing and formatting\n";
+    print "  - Processes entire file, modifying only specified parameter\n\n";
+    print "UNDERSCORE HANDLING:\n";
+    print "  - If parameter contains underscore: replaces value before underscore\n";
+    print "  - If no underscore: replaces entire parameter value\n";
+    print "  - Example: '1.5_' becomes 'new_value_' while '1.5' becomes 'new_value'\n\n";
+    print "EXAMPLES:\n";
+    print "  ffupdbynum BONDS 1 3 1.540 < input.ff > output.ff\n";
+    print "    Updates bond length in line 1, column 3 to 1.540\n\n";
+    print "  ffupdbynum ANGLES 5 4 120.0 input.ff > output.ff\n";
+    print "    Updates angle parameter in line 5, column 4 to 120.0\n\n";
+    print "  ffupdbynum DIHEDRALS 2 6 2.5_ < input.ff > output.ff\n";
+    print "    Updates dihedral parameter, preserving underscore suffix\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Identify target parameter location using ffgetpam\n";
+    print "  2. Update parameter: ffupdbynum SECTION line col value\n";
+    print "  3. Validate changes in output file\n";
+    print "  4. Use updated file for further processing or simulations\n\n";
+    print "ERROR CONDITIONS:\n";
+    print "  - Dies if specified line number exceeds section length\n";
+    print "  - Requires exactly 4 arguments plus input file/stdin\n";
+    print "  - Section must exist in input file\n\n";
+    print "SEE ALSO:\n";
+    print "  ffgetpam           - Extract parameters from force field files\n";
+    print "  ffaddremtermbynam  - Add/remove terms by atom names\n";
+    print "  off2ff_charge      - Update charge products systematically\n\n";
+}
+
+$keyword=$ARGV[0]; shift;
+$linno=$ARGV[0]; shift; 
+$colm=$ARGV[0]; shift; $value=$ARGV[0]; shift;
+
+$bnk="   ";
+
+while(<>)
+{
+if( /\[\s*$keyword\s*\]/i ) { print;
+$ind=index($_,"]"); $_=substr($_,$ind+1); ($nrec)=split;
+
+for ($i=0; $i<$nrec;$i++)
+{
+$_=<>;
+$_ =~ s/^\s+//;
+@input=split(/\s+/,$_);
+
+  die "Line $linno does not exist in [$keyword]\n" if ($linno > $nrec);
+  if ($i == $linno-1) {
+
+  # do the replacemnt considering _ at position $pus
+  $field=$input[$colm-1];
+  $pus=index($field,_);
+  if ($pus<0) {$input[$colm-1]=$value} else {
+  $input[$colm-1]=$value.substr($field,$pus);}
+  
+  #recreate the line
+  $buf="  ".$input[0];
+  for($j=1;$j<@input;$j++)
+  {  $buf=$buf.$bnk.$input[$j]; }
+  print $buf."\n";
+  }
+  #end of if name match 
+else {print "  ".$_;}
+#end of for loop $i
+}
+#end of keyword match
+}
+
+else {print;}
+}
+
+

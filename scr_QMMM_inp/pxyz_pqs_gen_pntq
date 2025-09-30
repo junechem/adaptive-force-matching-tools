@@ -1,0 +1,105 @@
+#!/usr/bin/perl
+#This routine generate the point charge file for pqs.
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== pxyz_pqs_gen_pntq - PQS Point Charge Generator ===\n\n";
+  print "PURPOSE:\n";
+  print "  Generates point charge files for PQS QM/MM calculations from .pxyz files.\n";
+  print "  Creates standalone point charge files for MM embedding.\n\n";
+  print "USAGE:\n";
+  print "  pxyz_pqs_gen_pntq charge_info [file.pxyz]\n";
+  print "  pxyz_pqs_gen_pntq pqs.chginfo mm_region.pxyz > charges.pntq\n\n";
+  print "PARAMETERS:\n";
+  print "  charge_info  - Partial charge file with optional dummy atom types\n";
+  print "  file.pxyz    - MM coordinate data (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - Charge info file format: 'atomname charge [dummy_type]'\n";
+  print "  - .pxyz format: 'atomname x y z molname mark'\n\n";
+  print "OUTPUT:\n";
+  print "  - PQS point charge file written to stdout\n";
+  print "  - Dies with error if charge not found for any atom\n\n";
+  print "DETAILS:\n";
+  print "  - Creates standalone point charge file\n";
+  print "  - Format: 'dummy_type x y z charge'\n";
+  print "  - Three-column charge_info: 'atomname charge [dummy_type]'\n";
+  print "  - Default dummy type is \"Q\" if not specified\n";
+  print "  - Includes atom count and \"an\" identifier for PQS\n";
+  print "  - Used with PQS 'pntq' directive in main input\n";
+  print "  - High precision: 16.8f format for coordinates and charges\n\n";
+  print "CHARGE INFO FILE FORMAT:\n";
+  print "  # Comments start with #\n";
+  print "  HW1      0.4238     Q\n";
+  print "  OW      -0.8476     Q\n";
+  print "  MW      -1.3290          # defaults to Q\n";
+  print "  NA       1.0000     M    # different dummy type\n\n";
+  print "PQS POINT CHARGE FORMAT:\n";
+  print "  150\n";
+  print "  an\n";
+  print "     Q    31.26000000   29.05000000   54.94000000    0.42380000\n";
+  print "     Q    30.78000000   28.03000000   54.67000000   -0.84760000\n";
+  print "     M    29.95000000   27.21000000   55.12000000    1.00000000\n\n";
+  print "DUMMY ATOM TYPES:\n";
+  print "  - Default: \"Q\" for all point charges\n";
+  print "  - Custom types from third column of charge_info\n";
+  print "  - Useful for distinguishing charge types in PQS\n";
+  print "  - Examples: Q (charges), M (metal ions), D (dummy)\n\n";
+  print "EXAMPLES:\n";
+  print "  pxyz_pqs_gen_pntq pqs.chginfo mm_region.pxyz > charges.pntq\n";
+  print "  pxyz_pqs_gen_pntq chginfo < mm_charges.pxyz > point_charges.dat\n\n";
+  print "PQS INTEGRATION:\n";
+  print "  Main PQS input file references generated charges:\n";
+  print "  pntq charges.pntq\n";
+  print "  \n";
+  print "  Example PQS input section:\n";
+  print "  \$molecule\n";
+  print "  GEOM=pqs FILE=coords.xyz\n";
+  print "  pntq charges.pntq\n";
+  print "  \$end\n\n";
+  print "FILE STRUCTURE:\n";
+  print "  - First line: number of point charges\n";
+  print "  - Second line: \"an\" identifier\n";
+  print "  - Following lines: dummy_type x y z charge\n";
+  print "  - Format preserves PQS requirements exactly\n\n";
+  print "WORKFLOW:\n";
+  print "  1. Generate coordinates: pxyz_pqs_gen_xyz nucinfo qm.pxyz > coords.xyz\n";
+  print "  2. Generate charges: pxyz_pqs_gen_pntq chginfo mm.pxyz > charges.pntq\n";
+  print "  3. Update main input: pqs_replace_field \"pntq\" \"charges.pntq\" template.inp > final.inp\n\n";
+  print "COORDINATE PRECISION:\n";
+  print "  - Uses 16.8f format for maximum precision\n";
+  print "  - Essential for accurate electrostatic interactions\n";
+  print "  - Matches PQS requirements for point charge accuracy\n\n";
+  print "SEE ALSO:\n";
+  print "  pxyz_pqs_gen_xyz - Generate XYZ coordinate files for PQS\n";
+  print "  pqs_replace_field - Update space-separated fields in PQS files\n\n";
+}
+
+
+
+$chginfo=$ARGV[0];shift;
+die "ERROR: Partical charge file: $chginfo expected!\n" unless -e $chginfo;
+
+open (charge,"<", $chginfo);
+while (<charge>){
+chomp;
+($name,$chgval,$dum)=split;
+$chg{$name} = $chgval ;
+$dummy{$name} = "Q";
+$dummy{$name} = $dum if $dum;
+}
+
+$_=<>;chomp;$natms=$_;
+$_=<>;
+
+print $natms."\n"; 
+print "an\n";
+
+while (<>) {
+chomp; ($nam, $xxx, $yyy, $zzz)=split;
+die "ERROR: No partical charge found for $nam, Please check $chginfo file!" unless exists($chg{$nam});
+printf ("%4s  %16.8f %16.8f %16.8f %16.8f\n", $dummy{$nam},$xxx,$yyy,$zzz,$chg{$nam});
+}  

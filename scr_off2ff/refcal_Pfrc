@@ -1,0 +1,140 @@
+#!/usr/bin/perl
+
+# refcal_Pfrc - Calculate pairwise forces from reference data
+#
+# This script calculates projected forces between atom pairs from reference
+# (.ref) files, providing force analysis for AFM parameter optimization.
+
+if (@ARGV < 2 || $ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    print_help();
+    exit(@ARGV < 2 ? 1 : 0);
+}
+
+sub print_help {
+    print << 'EOF';
+
+NAME
+    refcal_Pfrc - Calculate pairwise forces from reference data
+
+PURPOSE
+    This script calculates pairwise force projections between specified atom
+    pairs from reference (.ref) files. It computes the component of the force
+    difference vector that lies along the internuclear axis, providing
+    essential data for force field parameter optimization and validation.
+
+USAGE
+    refcal_Pfrc reference.ref atom_pair1 [atom_pair2 ...]
+
+PARAMETERS
+    reference.ref - Input .ref file containing atomic coordinates and forces
+    atom_pair     - Atom pair specification in format "atom1~atom2"
+                   • atom1, atom2: Atom indices (1-based numbering)
+                   • Multiple pairs can be specified
+
+INPUT
+    • .ref file: Standard AFMTools reference format containing:
+      - Number of atoms per frame
+      - Comment line  
+      - Atomic data: name, x, y, z, fx, fy, fz, solv_flag, mol_name
+    • Atom pair specifications using ~ separator
+
+OUTPUT
+    • Five-column output for each atom pair per frame:
+      distance  projected_force  cosine_angle  atom1_index  atom2_index
+    
+    Where:
+    - distance: Internuclear distance (Angstrom)
+    - projected_force: Force projection along internuclear axis
+    - cosine_angle: Cosine of angle between force difference and distance vectors
+    - atom1_index, atom2_index: Original atom indices
+
+DETAILS
+    The script calculates:
+    1. Distance vector: r⃗ = r⃗₂ - r⃗₁ between atom pairs
+    2. Force difference: Δf⃗ = f⃗₂ - f⃗₁ between atom pairs  
+    3. Unit distance vector: û = r⃗/|r⃗|
+    4. Projected force: Pf = Δf⃗ · û (dot product)
+    5. Cosine angle: cos(θ) = Pf/|Δf⃗|
+
+    Physical interpretation:
+    - Projected force represents the component of force difference along
+      the internuclear axis
+    - Positive values indicate repulsive interaction
+    - Negative values indicate attractive interaction
+    - Cosine angle shows alignment between force and distance vectors
+
+EXAMPLES
+    refcal_Pfrc system.ref 1~2
+        Calculate forces between atoms 1 and 2
+
+    refcal_Pfrc system.ref 1~2 3~4 5~6
+        Calculate forces for multiple atom pairs
+
+    refcal_Pfrc trajectory.ref 10~15
+        Analyze forces between atoms 10 and 15 across all frames
+
+INTEGRATION
+    This tool integrates with AFM workflows for:
+    • Force field parameter optimization
+    • Pairwise interaction analysis
+    • Force projection studies
+    • Parameter validation against reference data
+
+INPUT FORMAT
+    The .ref file must follow standard AFMTools format:
+    NATOMS
+    COMMENT
+    atom_name  x  y  z  fx  fy  fz  solv_flag  mol_name
+    ...
+    (repeated for each frame)
+
+OUTPUT FORMAT
+    Each line contains data for one atom pair in one frame:
+    3.45000     -12.34567     -0.89123     1     2
+
+EOF
+}
+
+$ref=$ARGV[0];shift;
+
+foreach $pair (@ARGV)
+{
+@list=split /~/,$pair;
+$ind[$n][1]=$list[0];
+$ind[$n][2]=$list[1];
+$n++;
+}
+$npair=$n;
+$bnk="     ";
+
+open (REF,$ref);
+while (<REF>) {
+  @nrec=split;
+  if (@nrec == 1) {
+    chomp;
+    $natoms=$_;
+    $_=<REF>;
+    for ($i=1;$i<=$natoms;$i++) {
+      $_=<REF>;
+      ($nam,$xxx[$i],$yyy[$i],$zzz[$i], $frx[$i], $fry[$i], $frz[$i],$solv,$molnam)=split;
+    }
+    for ($n=0;$n<$npair;$n++) {
+      #print $xxx[$ind[$n][2]].$bnk.$xxx[$ind[$n][1]]."\n";
+      $rx=$xxx[$ind[$n][2]]-$xxx[$ind[$n][1]];
+      $ry=$yyy[$ind[$n][2]]-$yyy[$ind[$n][1]];
+      $rz=$zzz[$ind[$n][2]]-$zzz[$ind[$n][1]];
+      $r=sqrt($rx**2+$ry**2+$rz**2); 
+      $rex=$rx/$r; $rey=$ry/$r; $rez=$rz/$r;
+      $dfx=$frx[$ind[$n][2]]-$frx[$ind[$n][1]];
+      $dfy=$fry[$ind[$n][2]]-$fry[$ind[$n][1]];
+      $dfz=$frz[$ind[$n][2]]-$frz[$ind[$n][1]];
+      $df=sqrt($dfx**2+$dfy**2+$dfz**2);
+      $pf=$dfx*$rex+$dfy*$rey+$dfz*$rez;
+      $cos=$pf/$df;
+      print $r.$bnk.$pf.$bnk.$cos.$bnk.$ind[$n][1].$bnk.$ind[$n][2]."\n";
+    }
+    
+  } else {
+    die "Number of atoms in the first line of the frame is not right, please check $ref file.";
+  }
+}

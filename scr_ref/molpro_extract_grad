@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== molpro_extract_grad - Molpro Gradient Extraction ===\n\n";
+    print "PURPOSE:\n";
+    print "  Extract gradients from Molpro output files.\n";
+    print "  Essential for preparing Molpro QM gradients for integration into .ref files.\n\n";
+    print "USAGE:\n";
+    print "  molpro_extract_grad molpro_output\n";
+    print "  molpro_extract_grad calculation.out > gradients.dat\n\n";
+    print "PARAMETERS:\n";
+    print "  molpro_output - Molpro output files containing gradient calculations\n\n";
+    print "INPUT:\n";
+    print "  - Molpro output files with gradient calculations\n";
+    print "  - Must contain 'GRADIENT' section with gradient data\n\n";
+    print "OUTPUT:\n";
+    print "  - Gradients written to stdout\n";
+    print "  - Format: gx gy gz (one line per atom)\n\n";
+    print "DETAILS:\n";
+    print "  - Searches for 'GRADIENT' keyword in Molpro output\n";
+    print "  - Parses Molpro's gradient output section\n";
+    print "  - Handles Molpro's 50-line pagination format\n";
+    print "  - Extracts x, y, z gradient components for each atom\n";
+    print "  - Use with ref_upd_molpro_grad for integration into AFMTools workflow\n\n";
+    print "EXAMPLES:\n";
+    print "  molpro_extract_grad calculation.out > gradients.dat\n";
+    print "  molpro_extract_grad qm_calc.out | ref_upd_molpro_grad /dev/stdin system.ref > updated.ref\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Run Molpro calculation: molpro input.inp > output.out\n";
+    print "  2. Extract gradients: molpro_extract_grad output.out > gradients.dat\n";
+    print "  3. Add to .ref file: ref_upd_molpro_grad gradients.dat system.ref > final.ref\n\n";
+    print "SEE ALSO:\n";
+    print "  molpro_extract_xyz  - Extract coordinates from Molpro output\n";
+    print "  ref_upd_molpro_grad - Add Molpro gradients to .ref files\n\n";
+}
+
+while(<>)
+{
+if (/GRADIENT/) {
+$_=<>;$_=<>;$_=<>;
+$ind=1;
+$natm=-1;
+while($ind>0){ $_=<>; $natm++; 
+($ind, $xxx, $yyy,$zzz)=split;
+$_=<> unless(($natm+1)%50);
+print $xxx."  ".$yyy."   ".$zzz."\n" if $ind>0;
+}
+}
+}
+
+

@@ -1,0 +1,111 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== off2ff_copy - Parameter Copy Engine ===\n\n";
+    print "PURPOSE:\n";
+    print "  Copy or populate FF sections with parameters from OFF files.\n";
+    print "  Core parameter transfer utility for OFF to FF conversions.\n\n";
+    print "USAGE:\n";
+    print "  off2ff_copy off_spec ff_spec input.off template.ff output.ff\n";
+    print "  off2ff_copy EXP,col3,ln1-10 EXP,fix input.off base.ff updated.ff\n\n";
+    print "PARAMETERS:\n";
+    print "  off_spec    - OFF parameter specification (section,col,lines)\n";
+    print "  ff_spec     - FF target specification (section,fit/fix,lines)\n";
+    print "  input.off   - Source OFF file\n";
+    print "  template.ff - Input FF file template\n";
+    print "  output.ff   - Output FF file\n\n";
+    print "INPUT:\n";
+    print "  - OFF file with Inter-Potential section\n";
+    print "  - FF template file with target sections\n";
+    print "  - Parameter specifications with line ranges\n\n";
+    print "OUTPUT:\n";
+    print "  - Updated FF file with transferred parameters\n";
+    print "  - Section population or parameter updates\n\n";
+    print "DETAILS:\n";
+    print "  - Two modes: section population (fit/fix) or parameter updates (col,ln)\n";
+    print "  - Section population: Adds entire sections with fit/fix flags\n";
+    print "  - Parameter updates: Updates specific parameters at given positions\n";
+    print "  - Uses offget_inter for parameter extraction\n";
+    print "  - Integrates with ffaddremtermbynam and ffupdbynum\n\n";
+    print "SPECIFICATION FORMAT:\n";
+    print "  OFF: section,col3,ln1-10  (extract column 3, lines 1-10)\n";
+    print "  FF:  section,fix          (populate section with fix flag)\n";
+    print "  FF:  section,col4,ln5-15  (update column 4, lines 5-15)\n\n";
+    print "EXAMPLES:\n";
+    print "  off2ff_copy EXP EXP,fix input.off base.ff out.ff       # Populate EXP section\n";
+    print "  off2ff_copy COU,col4,ln1-20 COU,col4,ln1-20 input.off base.ff out.ff  # Update charges\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Extract parameters: Uses offget_inter with specifications\n";
+    print "  2. Determine operation: Section population vs parameter updates\n";
+    print "  3. Apply changes: Via ffaddremtermbynam or ffupdbynum\n";
+    print "  4. Validate results: Check parameter counts and values\n\n";
+    print "SEE ALSO:\n";
+    print "  off2ff             - Main conversion script using this utility\n";
+    print "  offget_inter       - Parameter extraction engine\n";
+    print "  ffaddremtermbynam  - Section manipulation utility\n";
+    print "  ffupdbynum         - Parameter update utility\n\n";
+}
+$offpam=$ARGV[0];$ffpam=$ARGV[1];
+$inputoff=$ARGV[2];$inpff = $ARGV[3]; $outff = $ARGV[4];
+$tmpfile = "/tmp/tempoff2ff.$$"; $tmpfil2 = "/tmp/tempoff2f2.$$";
+system ("cp $inpff $tmpfile");
+die "script will not overwrite existing output\n" if (-e $outff);
+
+#get potential from off file.
+@off=split(',',$offpam); 
+$keyword=$off[0]; $offcol=substr $off[1],3;
+$getpot=$keyword;  
+if ( @off > 1 and $off[1] =~ /ln/) { $beg=1; } else { $beg=2; }
+for ($n=$beg;$n<@off;$n++) { $getpot=$getpot.",".$off[$n]; }
+@total=`offget_inter $inputoff $getpot`;
+
+#parameter position in ff .file.
+@ff=split(',',$ffpam); 
+$keywordff=$ff[0];
+if( lc($ff[1]) eq "fix" or lc($ff[1]) eq "fit" ) {
+  $copysec=1;   #copy section
+  print "Add [ ".@total." ] terms to [ $keywordff ] section.\n";
+} else {
+  $idx=0;
+  if ( @ff == 2) {
+    for ($idx=0;$idx<@total;$idx++) {$ln[$idx]=$idx+1;} #no line number are provided.
+  } else {
+    for ($n=2;$n<@ff;$n++) {
+      $ff[$n]= substr $ff[$n],2; @templn=split(/-/,$ff[$n]);
+      $templn[1]=$templn[0] unless $templn[1] > $templn[0];
+      for ($j=$templn[0];$j<=$templn[1];$j++) { $ln[$idx]=$j; $idx++;"\n"; } }
+  } # line number are provided.
+  die "Get ".@total."  parameters, but update $idx parameters." if $idx != @total ;
+  print "Update ".$idx." parameters for $keywordff section.\n"; 
+}
+
+for ($ip=0;$ip<@total;$ip++)  #update ff file
+{
+  $str=$total[$ip]; chomp($str); $str =~ s/^\s+|\s+$//g;
+  @ipot=split /\s+/,$str;
+  if ( $copysec ) {
+    $fit=$ff[1];
+    $nam1=@ipot[0];$nam2=@ipot[1];
+    $pot=$keywordff.",".$nam1.",".$nam2.",".$fit;
+    for ($i=3;$i<@ipot;$i++) {
+      if ( $ipot[$i] ne "Min") { $pot=$pot.",".$ipot[$i];
+      } else {
+        $action="add";
+        system("ffaddremtermbynam $action $pot $tmpfile > $tmpfil2 ; mv $tmpfil2 $tmpfile"); 
+        last;
+      }
+    } 
+  } else {
+     $ffcol=substr $ff[1],3; $ffln=$ln[$ip];
+     $pam=$ipot[$offcol-1];
+     print "Parameter obtained: ".$pam." Update Col: ".$ffcol." Ln: ".$ffln."\n";
+     system("ffupdbynum $keywordff $ffln $ffcol $pam $tmpfile > $tmpfil2; mv $tmpfil2 $tmpfile");
+  }
+}
+
+system ("mv $tmpfile $outff");
+

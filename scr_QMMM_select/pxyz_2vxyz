@@ -1,0 +1,68 @@
+#!/usr/bin/perl
+#This routine combine atom name and mark to make the same atom kind have different names if they have different mark value.
+#This also make it easier to view in VMD.
+#
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help { 
+    print "\n=== pxyz_2vxyz - Visualization Format Converter ===\n\n";
+    print "PURPOSE:\n";
+    print "  Creates visualization-friendly format by combining atom names with mark values.\n";
+    print "  Useful for displaying different atom classifications in molecular viewers.\n\n";
+    print "USAGE:\n";
+    print "  pxyz_2vxyz [file.pxyz]\n";
+    print "  pxyz_2vxyz < system.pxyz > visual.xyz\n\n";
+    print "PARAMETERS:\n";
+    print "  file.pxyz   - Input .pxyz file (optional, reads from stdin if not provided)\n\n";
+    print "INPUT:\n";
+    print "  - .pxyz format file (via stdin or file argument)\n\n";
+    print "OUTPUT:\n";
+    print "  - Modified coordinate format written to stdout\n";
+    print "  - Atom names include mark values (e.g., 'C4' for carbon with mark 4)\n";
+    print "  - Does NOT include separate mark column\n";
+    print "  - Format: atomname+mark x y z molname\n\n";
+    print "DETAILS:\n";
+    print "  - Concatenates atom name with mark value (e.g., 'C' + '4' = 'C4')\n";
+    print "  - Preserves coordinates and molecule information\n";
+    print "  - Removes the separate mark column from output\n";
+    print "  - Useful for visualizing QM/MM regions in VMD or similar programs\n";
+    print "  - Different mark values appear as different 'atom types' in viewers\n\n";
+    print "EXAMPLES:\n";
+    print "  pxyz_2vxyz system.pxyz > visual.xyz              # Create visualization file\n";
+    print "  pxyz_2vxyz final.pxyz | vmd -xyz                 # Direct visualization\n\n";
+    print "VISUALIZATION:\n";
+    print "  In molecular viewers:\n";
+    print "  - C4 atoms (QM center) can be colored differently from C3 (QM fitting)\n";
+    print "  - C1 atoms (MM) appear distinct from QM atoms\n";
+    print "  - Easy identification of QM/MM boundaries\n\n";
+    print "USE CASES:\n";
+    print "  - Quality control of QM/MM selections\n";
+    print "  - Presentation of QM/MM partitioning\n";
+    print "  - Debugging selection algorithms\n\n";
+}
+
+
+$bnk="   ";
+$_=<>;chomp;$natm=$_;
+
+$_=<>;
+($box1,$box2,$box3)=split;
+
+for ($i=0;$i<$natm;$i++)
+{
+$_=<>;
+($nam[$i],$xxx[$i],$yyy[$i],$zzz[$i],$mol[$i],$val[$i])=split;
+}
+
+print $natm."\n";
+print $box1.$bnk.$box2.$bnk.$box3."\n";
+
+for ($i=0;$i<$natm;$i++)
+{
+#print $nam[$i].$bnk.$xxx[$i]*$conv.$bnk.$yyy[$i]*$conv.$bnk.$zzz[$i]*$conv.$bnk.$mol[$i].$bnk."-9\n";
+printf ("%4s%-2s %15.5f %15.5f %15.5f%8s\n", $nam[$i],$val[$i],$xxx[$i],$yyy[$i],$zzz[$i],$mol[$i])
+}
+

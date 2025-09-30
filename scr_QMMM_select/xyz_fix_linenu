@@ -1,0 +1,59 @@
+#!/usr/bin/perl
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== xyz_fix_linenu - XYZ Header Correction (Duplicate) ===\n\n";
+    print "PURPOSE:\n";
+    print "  Identical functionality to xyz_fix_lineno. Corrects the atom count in XYZ\n";
+    print "  files that have incorrect headers. This is a duplicate script.\n\n";
+    print "USAGE:\n";
+    print "  xyz_fix_linenu [file.xyz]\n";
+    print "  xyz_fix_linenu < broken.xyz > fixed.xyz\n\n";
+    print "PARAMETERS:\n";
+    print "  file.xyz    - Input XYZ file (optional, reads from stdin if not provided)\n\n";
+    print "INPUT:\n";
+    print "  - XYZ file with potentially incorrect atom count (via stdin or file argument)\n";
+    print "  - Must have existing XYZ format with 2-line header\n\n";
+    print "OUTPUT:\n";
+    print "  - XYZ file with corrected atom count written to stdout\n";
+    print "  - Structure:\n";
+    print "    Line 1: Corrected number of atoms (counted from data)\n";
+    print "    Line 2: Original comment line (preserved)\n";
+    print "    Lines 3+: Original coordinate data\n\n";
+    print "DETAILS:\n";
+    print "  - Same functionality as xyz_fix_lineno\n";
+    print "  - Reads existing first line (incorrect atom count) and discards it\n";
+    print "  - Preserves original comment line from input\n";
+    print "  - Counts actual coordinate lines in the file\n";
+    print "  - Outputs corrected atom count as new first line\n\n";
+    print "EXAMPLES:\n";
+    print "  xyz_fix_linenu edited.xyz > corrected.xyz           # Fix atom count\n";
+    print "  xyz_fix_linenu broken.xyz > fixed.xyz              # Repair damaged file\n\n";
+    print "NOTE:\n";
+    print "  This script is identical to xyz_fix_lineno. Use either one.\n\n";
+    print "SEE ALSO:\n";
+    print "  xyz_fix_lineno  - Identical functionality\n";
+    print "  xyz_add_lineno  - Add headers to headerless files\n\n";
+}
+
+
+$i=0;
+$_=<>;
+$comment=<>;
+
+while(<>)
+{
+
+$i++;
+$buf.=$_;
+
+}
+
+print $i."\n";
+print "$comment";
+print $buf;
+

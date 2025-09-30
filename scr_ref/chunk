@@ -1,0 +1,68 @@
+#!/usr/bin/perl
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help { 
+    print "\n=== chunk - Text File Line Extraction Utility ===\n\n";
+    print "PURPOSE:\n";
+    print "  Extract specific line ranges from files (general text processing utility).\n";
+    print "  Useful for extracting portions of large output files from QM calculations.\n\n";
+    print "USAGE:\n";
+    print "  chunk nskip nlines [file1 file2 ...]\n";
+    print "  chunk 100 50 large_output.log\n\n";
+    print "PARAMETERS:\n";
+    print "  nskip   - Number of lines to skip from beginning\n";
+    print "  nlines  - Number of lines to extract\n";
+    print "  files   - Input files (optional, reads from stdin if not provided)\n\n";
+    print "INPUT:\n";
+    print "  - Text files or stdin\n\n";
+    print "OUTPUT:\n";
+    print "  - Selected lines written to stdout\n\n";
+    print "DETAILS:\n";
+    print "  - Skips first 'nskip' lines from each input file\n";
+    print "  - Extracts next 'nlines' lines and outputs to stdout\n";
+    print "  - Processes multiple files sequentially if provided\n";
+    print "  - Reads from stdin if no files specified\n";
+    print "  - Useful for extracting specific sections from large log files\n\n";
+    print "EXAMPLES:\n";
+    print "  chunk 100 50 large_output.log     # Skip first 100 lines, extract next 50\n";
+    print "  chunk 0 10 file1.txt file2.txt    # Extract first 10 lines from each file\n";
+    print "  cat data.txt | chunk 5 20          # Skip 5 lines, extract 20 from stdin\n\n";
+}
+
+
+$skip=$ARGV[0];shift;
+$nlins=$ARGV[0];shift;
+
+for($j=0;$j<@ARGV;$j++)
+{
+open (FIL,"$ARGV[$j]") || die "can not open file $ARGV[$j]";
+
+for ($i=0;$i<$skip;$i++){$_=<FIL>;}
+
+$i=0;
+while(<FIL>)
+{
+print if ($i<$nlins);
+$i++;
+}
+}
+
+if (@ARGV==0)
+{
+
+for ($i=0;$i<$skip;$i++){$_=<STDIN>;}
+
+$i=0;
+while(<STDIN>)
+{
+print if $i<$nlins;
+$i++;
+}
+
+}
+
+

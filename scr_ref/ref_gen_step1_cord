@@ -1,0 +1,121 @@
+#!/usr/bin/perl
+#This routine generate .ref file according coordinate. A molecules information file is needed.
+#The coordinate file should have at least 4 columns:$info, $xxx, $yyy, $zzz; lines with other format are not allowed.
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== ref_gen_step1_cord - Initial .ref File Generator ===\n\n";
+    print "PURPOSE:\n";
+    print "  Generate initial .ref files from coordinates and molecular information.\n";
+    print "  Creates .ref file structure with placeholder zero forces for force calculations.\n\n";
+    print "USAGE:\n";
+    print "  ref_gen_step1_cord mol_info [xyzfile]\n";
+    print "  ref_gen_step1_cord molinfo system.xyz > initial.ref\n\n";
+    print "PARAMETERS:\n";
+    print "  mol_info - Molecular information file (molinfo format)\n";
+    print "  xyzfile  - XYZ coordinate file (optional, reads from stdin if not provided)\n\n";
+    print "INPUT:\n";
+    print "  - Molinfo file specifying molecular structure and atom counting\n";
+    print "  - XYZ coordinate file with atomic positions\n";
+    print "  - Minimum 4 columns required: atomname x y z\n\n";
+    print "OUTPUT:\n";
+    print "  - Initial .ref file with coordinates and zero forces to stdout\n";
+    print "  - Format: atomname x y z TBD TBD TBD solvflag molID\n";
+    print "  - Includes calculated NetF and Torq entries for each molecule\n\n";
+    print "DETAILS:\n";
+    print "  - Creates .ref file structure with placeholder 'TBD' forces\n";
+    print "  - Calculates center of mass for each molecule using atom weights\n";
+    print "  - Assigns molecule IDs and solvation flags from molinfo\n";
+    print "  - NetF and Torq entries placed at center of mass coordinates\n";
+    print "  - Essential first step in force calculation workflows\n";
+    print "  - Forces must be added later using ref_upd_* scripts\n\n";
+    print "MOLINFO FILE STRUCTURE:\n";
+    print "  REPLACE\n";
+    print "  NATOMS_IN_MOLECULE RESNAME SOLVFLAG\n";
+    print "  AtomName Weight\n";
+    print "  ...\n";
+    print "  next [RESIDUE_NAME]\n\n";
+    print "CENTER OF MASS CALCULATION:\n";
+    print "  - Each atom weighted by its weight value from molinfo\n";
+    print "  - COM = Σ(position × weight) / Σ(weight)\n";
+    print "  - M-sites typically have weight=0.0 (excluded from COM)\n";
+    print "  - NetF and Torq entries positioned at calculated COM\n\n";
+    print "EXAMPLES:\n";
+    print "  ref_gen_step1_cord molinfo system.xyz > initial.ref\n";
+    print "  cat coords.xyz | ref_gen_step1_cord molinfo > step1.ref\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Generate initial: ref_gen_step1_cord molinfo coords.xyz > step1.ref\n";
+    print "  2. Add QM forces: ref_upd_orca_grad qm.engrad step1.ref > step2.ref\n";
+    print "  3. Calculate net: ref_upd_net step2.ref > final.ref\n\n";
+    print "ERROR HANDLING:\n";
+    print "  - Dies if molinfo file cannot be opened\n";
+    print "  - Performs consistency check on molinfo 'next' keywords\n";
+    print "  - Requires exactly matching number of atoms per molecule\n\n";
+    print "SEE ALSO:\n";
+    print "  ref_upd_* scripts - Add forces from various QM programs\n";
+    print "  ref_upd_net       - Calculate net forces and torques\n\n";
+}
+
+
+$bnk="     ";
+
+open (MOLI, $ARGV[0]) || die "can not open file $ARGV[0]\n";
+shift ;
+
+$comment=<MOLI>;
+
+print "TBD\n";
+print $comment;
+
+$molind=1;
+$_=<>; ($info, $xxx, $yyy, $zzz)=split;
+$save=$_;
+
+until(eof()){
+
+#print "DEBUG ".$info."  ".$next."\n";
+if (($info eq $next)|$molind==1)
+{
+#reset atomic index to one for each molecule type. 
+#$molind=1;
+$sumwgt=0.0;
+$_=<MOLI>; ($natms,$molnam,$solv)=split;
+
+for($i=0;$i<$natms;$i++)
+{ $_=<MOLI>; ($nam[$i],$wgt[$i])=split; $sumwgt+=$wgt[$i];}
+$_=<MOLI>; ($check, $next)=split;
+
+die "consistentcy check failure.\n" unless $check eq "next";
+
+}
+# end if
+
+# read input
+$cmx=0.0;$cmy=0.0;$cmz=0.0;
+for($i=0;$i<$natms;$i++)
+{
+  $_=$save;
+  #$solv=1.0;
+  #if (/&/) {$solv="1.0"} else {$solv="0.0"};
+  $cmx+=$xxx*$wgt[$i];$cmy+=$yyy*$wgt[$i];$cmz+=$zzz*$wgt[$i];
+  print $nam[$i].$bnk.$xxx.$bnk.$yyy.$bnk.$zzz.$bnk."TBD".$bnk."TBD".$bnk."TBD".$bnk.$solv.$bnk.$molind.$molnam."\n";
+  $_=<> unless eof(); ($info, $xxx, $yyy, $zzz)=split;
+  $save=$_;
+}
+ if ($sumwgt>0){
+  $comx=sprintf("%.7f",$cmx/$sumwgt);
+  $comy=sprintf("%.7f",$cmy/$sumwgt);
+  $comz=sprintf("%.7f",$cmz/$sumwgt);
+ 
+  print "NetF".$bnk.$comx.$bnk.$comy.$bnk.$comz.$bnk."TBD".$bnk."TBD".$bnk."TBD".$bnk.$solv.$bnk.$molind.$molnam."\n";
+  print "Torq".$bnk,$comx.$bnk.$comy.$bnk.$comz.$bnk."TBD".$bnk."TBD".$bnk."TBD".$bnk.$solv.$bnk.$molind.$molnam."\n";
+}
+
+$molind++;
+#end while molecule hoop
+}
+

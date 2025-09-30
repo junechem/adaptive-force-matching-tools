@@ -1,0 +1,129 @@
+#!/usr/bin/perl
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== off2ff_byvalue - Force Field Manager by Parameter Value Criteria ===\n\n";
+    print "PURPOSE:\n";
+    print "  Add, remove, or enable force field terms based on parameter value thresholds.\n";
+    print "  Essential for filtering and managing parameters based on their physical values.\n\n";
+    print "USAGE:\n";
+    print "  off2ff_byvalue condition action off_param ff_param input.off input.ff output.ff\n\n";
+    print "PARAMETERS:\n";
+    print "  condition  - Value criteria: 'SECTION,OPERATOR,VALUE'\n";
+    print "  action     - Operation: 'add', 'rm' (remove), or 'enable'\n";
+    print "  off_param  - OFF parameter spec: 'SECTION,col#,param3,param4,...'\n";
+    print "  ff_param   - FF section to modify (e.g., 'VDW', 'BONDS')\n";
+    print "  input.off  - OFF file containing parameter values\n";
+    print "  input.ff   - Input force field file to modify\n";
+    print "  output.ff  - Output force field file (must not exist)\n\n";
+    print "INPUT:\n";
+    print "  - OFF file with Inter-Potential section containing parameter values\n";
+    print "  - Force field file with target section for modifications\n";
+    print "  - Parameter data in specified columns\n\n";
+    print "OUTPUT:\n";
+    print "  - Modified force field file with updated parameters\n";
+    print "  - Progress messages showing actions taken with parameter values\n";
+    print "  - Summary count of modified terms\n";
+    print "  - Error protection against overwriting existing output\n\n";
+    print "DETAILS:\n";
+    print "  CONDITION FORMAT:\n";
+    print "    'SECTION,OPERATOR,VALUE' where:\n";
+    print "    - SECTION: Not directly used (legacy parameter)\n";
+    print "    - OPERATOR: gt, lt, ge, le (greater than, less than, etc.)\n";
+    print "    - VALUE: Parameter threshold value\n\n";
+    print "  VALUE OPERATORS:\n";
+    print "    gt  - Greater than (parameter > value)\n";
+    print "    lt  - Less than (parameter < value)\n";
+    print "    ge  - Greater than or equal (parameter >= value)\n";
+    print "    le  - Less than or equal (parameter <= value)\n\n";
+    print "  OFF PARAMETER SPECIFICATION:\n";
+    print "    'SECTION,col#,param3,param4,...' where:\n";
+    print "    - SECTION: OFF section to extract from\n";
+    print "    - col#: Column containing parameter for comparison\n";
+    print "    - param3+: Additional parameters passed to offget_inter\n\n";
+    print "  WORKFLOW:\n";
+    print "    1. Extracts parameters using offget_inter with full specification\n";
+    print "    2. Compares specified column values against threshold\n";
+    print "    3. Filters atom pairs meeting value criteria\n";
+    print "    4. Performs specified action on matching pairs\n";
+    print "    5. Updates force field using ffaddremtermbynam\n\n";
+    print "EXAMPLES:\n";
+    print "  off2ff_byvalue 'VAL,gt,1000' rm 'EXP,col3' 'VDW' sys.off input.ff output.ff\n";
+    print "    Removes VDW terms where EXP parameter in column 3 > 1000\n\n";
+    print "  off2ff_byvalue 'VAL,lt,0.1' add 'POW,col4' 'WEAK' sys.off in.ff out.ff\n";
+    print "    Adds WEAK terms where POW parameter in column 4 < 0.1\n\n";
+    print "  off2ff_byvalue 'VAL,le,50.0' enable 'COU,col5' 'COULOMB' sys.off in.ff out.ff\n";
+    print "    Enables COULOMB terms where COU parameter in column 5 <= 50.0\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Analyze parameter distributions in OFF file\n";
+    print "  2. Identify problematic values (too large, too small, unphysical)\n";
+    print "  3. Remove outliers: off2ff_byvalue 'X,gt,1e6' rm 'SECTION,col#'\n";
+    print "  4. Add missing parameters: off2ff_byvalue 'X,lt,1e-6' add\n";
+    print "  5. Test and validate modified force field performance\n\n";
+    print "PARAMETER ANALYSIS:\n";
+    print "  - Useful for identifying unphysical parameter values\n";
+    print "  - Helps remove parameters causing numerical instabilities\n";
+    print "  - Enables selective activation based on parameter magnitude\n";
+    print "  - Supports quality control in automated parameterization\n\n";
+    print "VALUE COMPARISON:\n";
+    print "  - Extracts specific column from OFF parameter lines\n";
+    print "  - Compares numerical values with specified threshold\n";
+    print "  - Supports both integer and floating-point comparisons\n";
+    print "  - Shows parameter values in progress messages\n\n";
+    print "ERROR CONDITIONS:\n";
+    print "  - Dies if output file already exists (no overwrite protection)\n";
+    print "  - Requires exactly 7 arguments\n";
+    print "  - Needs valid OFF file with Inter-Potential section\n";
+    print "  - Column specification must be valid for parameter extraction\n\n";
+    print "SEE ALSO:\n";
+    print "  off2ff_bymindist   - Filter by minimum distance criteria instead\n";
+    print "  offget_inter       - Extract intermolecular parameters\n";
+    print "  ffaddremtermbynam  - Core parameter modification tool\n\n";
+}
+
+$condition=$ARGV[0];$action=$ARGV[1];$offpam=$ARGV[2];$ffpam=$ARGV[3];
+$inputoff=$ARGV[4];$inpff=$ARGV[5];$outff=$ARGV[6];
+$tmpfile = "/tmp/tempoff2ff.$$"; $tmpfil2 = "/tmp/tempoff2f2.$$";
+system ("cp $inpff $tmpfile");
+die "script will not overwrite existing output\n" if (-e $outff);
+
+@off=split(',',$offpam);  #get potential from off file.
+$getpot=$off[0]; $pamcol=substr $off[1],3;
+for ($n=2;$n<@off;$n++) { $getpot=$getpot.",".$off[$n]; }
+@total=`offget_inter $inputoff $getpot`;
+#print "@total";
+#condition
+@cond=split(',',$condition); #parameter postion in off file
+$keyword=$cond[0]; 
+$operator=$cond[1];
+$val0=$cond[2];
+
+#ff parameter
+@ff=split(',',$ffpam);
+
+$idx=0;
+for ($ip=0;$ip<@total;$ip++){
+  $str=$total[$ip];
+  chomp($str);
+  $str =~ s/^\s+|\s+$//g;
+  @ipot=split /\s+/,$str;
+  $pam=$ipot[$pamcol-1]; #parameter field in off file
+  $rm=0;
+  $rm=1 if ( $operator eq "gt" and  $pam > $val0);
+  $rm=1 if ( $operator eq "lt" and  $pam < $val0);
+  $rm=1 if ( $operator eq "ge" and  $pam >= $val0);
+  $rm=1 if ( $operator eq "le" and  $pam <= $val0);
+  if ($rm){
+    $nam1=$ipot[0];$nam2=$ipot[1];
+    $potential=$ff[0].",".$nam1.",".$nam2;
+    print $action."   ".$potential."    parameter: ".$pam."\n";
+    system("ffaddremtermbynam  $action  $potential  $tmpfile > $tmpfil2; mv $tmpfil2 $tmpfile" );
+    $idx++;
+  }  
+} 
+print "$action [ $idx] terms for $ff[0]\n";
+system ("mv $tmpfile $outff")

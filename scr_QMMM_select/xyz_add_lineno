@@ -1,0 +1,56 @@
+#!/usr/bin/perl
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== xyz_add_lineno - XYZ Header Addition ===\n\n";
+    print "PURPOSE:\n";
+    print "  Adds standard XYZ format headers to headerless coordinate files.\n";
+    print "  Converts partial coordinate data to complete XYZ format.\n\n";
+    print "USAGE:\n";
+    print "  xyz_add_lineno [file.xyz]\n";
+    print "  xyz_add_lineno < coordinates.dat > complete.xyz\n\n";
+    print "PARAMETERS:\n";
+    print "  file.xyz    - Input coordinate file (optional, reads from stdin if not provided)\n\n";
+    print "INPUT:\n";
+    print "  - Headerless coordinate file (via stdin or file argument)\n";
+    print "  - Each line should contain coordinate data\n\n";
+    print "OUTPUT:\n";
+    print "  - Standard XYZ format written to stdout with structure:\n";
+    print "    Line 1: Number of atoms (counted automatically)\n";
+    print "    Line 2: 'comment' (standard comment line)\n";
+    print "    Lines 3+: Original coordinate data\n\n";
+    print "DETAILS:\n";
+    print "  - Counts total number of input lines to determine atom count\n";
+    print "  - Adds atom count as first line\n";
+    print "  - Adds generic 'comment' as second line\n";
+    print "  - Preserves all original coordinate data unchanged\n";
+    print "  - Useful for converting tool output to standard XYZ format\n\n";
+    print "EXAMPLES:\n";
+    print "  pxyz_select 4 system.pxyz | xyz_add_lineno > qm.xyz    # Add headers to selection\n";
+    print "  xyz_add_lineno coords.dat > standard.xyz              # Convert raw coordinates\n\n";
+    print "USE CASES:\n";
+    print "  - Converting pxyz_select output to standard XYZ\n";
+    print "  - Preparing coordinate data for molecular viewers\n";
+    print "  - Fixing files missing proper headers\n\n";
+    print "SEE ALSO:\n";
+    print "  xyz_fix_lineno  - Fix incorrect atom counts in existing XYZ files\n\n";
+}
+
+$i=0;
+
+while(<>)
+{
+
+$i++;
+$buf.=$_;
+
+}
+
+print $i."\n";
+print "comment\n";
+print $buf;
+

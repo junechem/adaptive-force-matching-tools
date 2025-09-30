@@ -1,0 +1,118 @@
+#!/usr/bin/perl
+use List::Util qw[min max];
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== ffaddremtermbynam - Force Field Term Manager by Atom Names ===\n\n";
+    print "PURPOSE:\n";
+    print "  Add, remove, or enable/disable force field terms by atom name pairs.\n";
+    print "  Manages parameter availability in force field sections without losing data.\n\n";
+    print "USAGE:\n";
+    print "  ffaddremtermbynam action potential_spec input.ff < stdin > output.ff\n";
+    print "  ffaddremtermbynam action potential_spec input.ff > output.ff\n\n";
+    print "PARAMETERS:\n";
+    print "  action         - Operation: 'add', 'rm' (remove/disable), 'enable'\n";
+    print "  potential_spec - Format: 'SECTION,ATOM1,ATOM2[,param1,param2,...]'\n";
+    print "  input.ff       - Input force field file to modify\n\n";
+    print "INPUT:\n";
+    print "  - Force field file with bracketed sections [KEYWORD]\n";
+    print "  - Parameter lines with atom names and values\n";
+    print "  - Comments may contain disabled terms (;, #, !)\n\n";
+    print "OUTPUT:\n";
+    print "  - Modified force field file to stdout\n";
+    print "  - Updated section record counts\n";
+    print "  - Preserved formatting and structure\n\n";
+    print "DETAILS:\n";
+    print "  ADD ACTION:\n";
+    print "    - Adds new parameter line to specified section\n";
+    print "    - Increments section record count\n";
+    print "    - Uses provided parameter values from potential_spec\n\n";
+    print "  RM ACTION:\n";
+    print "    - Comments out matching parameter line (adds ; prefix)\n";
+    print "    - Decrements record count if line was active\n";
+    print "    - Preserves original parameter data\n\n";
+    print "  ENABLE ACTION:\n";
+    print "    - Removes comment markers from matching parameter line\n";
+    print "    - Increments record count if line was commented\n";
+    print "    - Restores parameter to active state\n\n";
+    print "POTENTIAL SPECIFICATION:\n";
+    print "  Format: 'SECTION,ATOM1,ATOM2[,param1,param2,...]'\n";
+    print "  Examples:\n";
+    print "    'BONDS,C,H,340.0,1.09'     - Bond parameters\n";
+    print "    'ANGLES,C,C,H,35.0,109.5'  - Angle parameters\n";
+    print "    'VDW,O,H'                  - VDW pair (for rm/enable)\n\n";
+    print "EXAMPLES:\n";
+    print "  ffaddremtermbynam add 'BONDS,C,H,340.0,1.09' input.ff > output.ff\n";
+    print "    Adds C-H bond with force constant 340.0 and length 1.09\n\n";
+    print "  ffaddremtermbynam rm 'VDW,O,H' input.ff > output.ff\n";
+    print "    Disables O-H van der Waals interaction\n\n";
+    print "  ffaddremtermbynam enable 'ANGLES,C,C,H' input.ff > output.ff\n";
+    print "    Re-enables previously disabled C-C-H angle term\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Identify problematic parameters in force field\n";
+    print "  2. Disable with rm: ffaddremtermbynam rm 'SECTION,AT1,AT2'\n";
+    print "  3. Test system without parameter\n";
+    print "  4. Add improved parameter: ffaddremtermbynam add 'SECTION,AT1,AT2,vals'\n";
+    print "  5. Or re-enable: ffaddremtermbynam enable 'SECTION,AT1,AT2'\n\n";
+    print "ATOM NAME MATCHING:\n";
+    print "  - Case-insensitive atom name comparison\n";
+    print "  - Matches both ATOM1-ATOM2 and ATOM2-ATOM1 pairs\n";
+    print "  - Looks for names in comment sections (after ;, #, !)\n";
+    print "  - Warns if no matching parameter found\n\n";
+    print "ERROR CONDITIONS:\n";
+    print "  - Dies on unknown action (not add/rm/enable)\n";
+    print "  - Warns if no matching parameter found for rm/enable\n";
+    print "  - Requires proper potential specification format\n\n";
+    print "SEE ALSO:\n";
+    print "  ffupdbynum         - Update parameters by position\n";
+    print "  off2ff_bymindist   - Batch operations by distance criteria\n";
+    print "  off2ff_byvalue     - Batch operations by parameter values\n\n";
+}
+
+$action=$ARGV[0];shift;  #enable or disable term (rm/enable/add)
+$potential=$ARGV[0];shift; #e.g. POW,O,H,-610,-6
+$ff=$ARGV[0];
+@pot=split(/,/,$potential); #get the input potential 
+$keyword=uc($pot[0]),$nam1=uc($pot[1]);$nam2=uc($pot[2]);
+$bnk="    ";
+
+while(<>)
+{
+if( /\[\s*$keyword\s*\]/i ) {
+  $ind=index($_,"]"); $_=substr($_,$ind+1); ($nrec)=split;$nrecbk=$nrec;
+  if ( lc($action) eq "add") {
+    $nrec++;
+    $buf="  ".$pot[1];
+    for ($i=2;$i<@pot;$i++) { $buf=$buf.$bnk.$pot[$i]; }
+    $buf=$buf."\n";
+  } else {
+    while(<>) {
+       chomp;
+       if ($_ =~ / fit| fix/i ) {
+       $_ =~ s/^\s+|\s+$//g;
+       $ind1=rindex($_,"#"); $ind2=rindex($_,";"); $ind3=rindex($_,"!");
+       $ind=max($ind1,$ind2,$ind3);
+       $str = substr $_,$ind+1;
+       $str =~ s/^\s+|\s+$//g;
+       ($name1,$name2)=split /\s+/,$str;
+       if (uc($name1) eq $nam1 and uc($name2) eq $nam2 or (uc($name1) eq $nam1 and uc($name2) eq $nam2))
+       {
+          if ( $action eq "rm") {$buf=$buf."  ".";$str"."\n"; $nrec-- if $ind == -1; $update=1;}
+          elsif ( $action eq "enable") {$buf=$buf."  ".$str."\n"; $nrec++ if $ind != -1; $update=1;} 
+          else {die "No rule for $action.";}      
+       } else {
+         $buf=$buf."  ".$_."\n";
+       }
+      } else { $buf=$buf.$_."\n";last; } 
+    } # end of add/rm by name
+    warn  "No change to $ff since no potential is found for $nam1~$nam2 in $keyword" unless $update == 1; 
+  } 
+  print "[ ".$keyword." ]".$bnk.$nrec."\n";
+  print $buf;
+} # end of keyword match
+else { print;}
+}

@@ -1,0 +1,57 @@
+#!/usr/bin/perl
+#This routine sort the atoms according mark.
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== pxyz_sort - Mark-Based Atom Sorting ===\n\n";
+    print "PURPOSE:\n";
+    print "  Sorts atoms by their mark values in descending order (highest to lowest).\n";
+    print "  Organizes output for consistent atom ordering in QM/MM calculations.\n\n";
+    print "USAGE:\n";
+    print "  pxyz_sort [file.pxyz]\n";
+    print "  pxyz_sort < system.pxyz > sorted.pxyz\n\n";
+    print "PARAMETERS:\n";
+    print "  file.pxyz   - Input .pxyz file (optional, reads from stdin if not provided)\n\n";
+    print "INPUT:\n";
+    print "  - .pxyz format file (via stdin or file argument)\n\n";
+    print "OUTPUT:\n";
+    print "  - Sorted .pxyz file written to stdout\n";
+    print "  - Complete .pxyz format with preserved atom count and box dimensions\n\n";
+    print "DETAILS:\n";
+    print "  - Sorts in descending order of mark values (4 > 3 > 2 > 1 > -9)\n";
+    print "  - Preserves all atom information while reordering\n";
+    print "  - Maintains .pxyz format structure (headers and coordinates)\n";
+    print "  - Useful for organizing output with QM atoms first, then MM atoms\n";
+    print "  - Ensures consistent atom ordering across different selections\n\n";
+    print "EXAMPLES:\n";
+    print "  pxyz_sort system.pxyz > organized.pxyz           # Sort by mark values\n";
+    print "  pxyz_dropoff 0 temp.pxyz | pxyz_sort > final.pxyz   # Clean and sort\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  Common final processing step:\n";
+    print "  pxyz_dropoff 0 marked.pxyz | pxyz_sort | pxyz_recenter 1 > final.pxyz\n\n";
+    print "MARK ORDER (highest to lowest):\n";
+    print "  4 (QM center) > 3 (QM fitting) > 2 (QM buffer) > 1 (MM) > -9 (unselected)\n\n";
+}
+
+
+$bnk="  ";
+$_=<>; print; chomp;$natm=$_;
+$_=<>; print;
+
+for ($i=0;$i<$natm;$i++)
+{
+$_=<>;
+($nam,$xxx,$yyy,$zzz,$mol,$val)=split;
+chomp($val);
+$key=$val*$natm+($nam-$i-1); 
+$hash{$key}=$_;
+}
+
+foreach my $name (sort { $b <=> $a} keys %hash) {
+print $hash{$name};
+}
+

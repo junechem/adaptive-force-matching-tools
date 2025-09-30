@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+#pxyz line1: number of atoms
+#pxyz line2: box, only supports cubic
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help { 
+    print "\n=== gro2pxyz - GROMACS to PXYZ Format Converter ===\n\n";
+    print "PURPOSE:\n";
+    print "  Converts GROMACS .gro files to .pxyz format for QM/MM selection tools.\n";
+    print "  The .pxyz format includes an additional 'mark' field for atom classification.\n\n";
+    print "USAGE:\n";
+    print "  gro2pxyz [file.gro]\n";
+    print "  gro2pxyz < input.gro > output.pxyz\n\n";
+    print "INPUT:\n";
+    print "  - GROMACS .gro file (via stdin or file argument)\n";
+    print "  - Supports both 5-field and 8-field .gro formats (with/without velocities)\n\n";
+    print "OUTPUT:\n";
+    print "  - .pxyz format written to stdout with structure:\n";
+    print "    Line 1: Number of atoms\n";
+    print "    Line 2: Box dimensions (cubic: x y z in Angstroms)\n";
+    print "    Lines 3+: atomname x y z molname mark\n\n";
+    print "DETAILS:\n";
+    print "  - Converts coordinates from nm to Angstrom (multiply by 10.0)\n";
+    print "  - Sets all initial mark values to -9 (unselected)\n";
+    print "  - Only supports cubic simulation boxes\n";
+    print "  - Preserves atom names and molecule identifiers\n\n";
+    print "EXAMPLE:\n";
+    print "  gro2pxyz system.gro > system.pxyz\n\n";
+}
+
+$bnk="   ";
+$conv=10.0;
+
+$comment=<>;
+$_=<>;chomp;$natm=$_;
+
+for ($i=0;$i<$natm;$i++)
+{
+$_=<>;
+@fields=split;
+if (@fields ==5 or @fields ==8 ){
+($mol[$i],$namind,$xxx[$i],$yyy[$i],$zzz[$i])=split;
+$nam[$i]=substr($namind,0,-5);
+}
+else{
+($mol[$i],$nam[$i],$ind,$xxx[$i],$yyy[$i],$zzz[$i])=split;
+}
+}
+
+$_=<>;
+($box1,$box2,$box3)=split;
+
+print $natm."\n";
+print $box1*$conv.$bnk.$box2*$conv.$bnk.$box3*$conv."\n";
+
+for ($i=0;$i<$natm;$i++)
+{
+print $nam[$i].$bnk.$xxx[$i]*$conv.$bnk.$yyy[$i]*$conv.$bnk.$zzz[$i]*$conv.$bnk.$mol[$i].$bnk."-9\n";
+}
+

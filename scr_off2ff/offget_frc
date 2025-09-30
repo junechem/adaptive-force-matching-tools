@@ -1,0 +1,126 @@
+#!/usr/bin/perl
+
+# offget_frc - Extract force data from OFF files with RefIdx sections
+#
+# This script extracts force components from OFF files containing RefIdx
+# sections, which store reference and fitted force data from AFM calculations.
+
+if (@ARGV < 1 || $ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    print_help();
+    exit(@ARGV < 1 ? 1 : 0);
+}
+
+sub print_help {
+    print << 'EOF';
+
+NAME
+    offget_frc - Extract force data from OFF files with RefIdx sections
+
+PURPOSE
+    This script extracts force components (X, Y, Z) from OFF files containing
+    RefIdx sections. These sections store reference forces, fitted forces, and
+    force differences from adaptive force matching (AFM) calculations, making
+    this tool essential for force comparison and validation workflows.
+
+USAGE
+    offget_frc file.off [force_type] [interaction_filter]
+
+PARAMETERS
+    file.off           - Input OFF file containing RefIdx section
+    force_type         - Type of forces to extract (default: "fit")
+                        • "ref": Reference forces from QM calculations
+                        • "fit": Fitted forces from force field
+                        • "dif": Force differences (ref - fit)
+    interaction_filter - Optional filter for specific interactions
+                        • String pattern to match against interaction IDs
+                        • Case-insensitive matching
+
+INPUT
+    • OFF file with RefIdx section containing force data
+    • RefIdx format: Each entry contains reference index and force components
+    • Force data stored in columnar format with multiple force types
+
+OUTPUT
+    • Three-column force data to stdout: "ForceX  ForceY  ForceZ"
+    • One line per reference point/interaction
+    • Forces filtered by interaction type if specified
+    • Only positive reference indices are processed
+
+DETAILS
+    The script works by:
+    1. Scanning OFF file for RefIdx section markers
+    2. Reading force data entries with positive reference indices
+    3. Extracting appropriate force components based on force_type:
+       - Reference forces from 4th-to-last column
+       - Fitted forces from 3rd-to-last column  
+       - Force differences from 2nd-to-last column
+    4. Applying interaction filtering if specified
+    5. Outputting X, Y, Z force components for each valid entry
+
+    Force data organization in RefIdx entries:
+    - Each entry has multiple columns ending with force data
+    - Last 4 columns typically: [...] ref_force fit_force diff_force [...]
+    - Script reads 3 consecutive lines per force vector (X, Y, Z components)
+
+EXAMPLES
+    offget_frc system.off
+        Extract fitted forces (default) from all interactions
+
+    offget_frc system.off ref
+        Extract reference forces from QM calculations
+
+    offget_frc system.off dif
+        Extract force differences (ref - fit)
+
+    offget_frc system.off fit COU
+        Extract fitted forces only for Coulomb interactions
+
+INTEGRATION
+    This tool integrates with AFM workflows for:
+    • Force comparison and validation
+    • Parameter optimization analysis
+    • Quality assessment of force field fitting
+    • Statistical analysis of force differences
+
+EOF
+}
+
+$off=$ARGV[0];shift;
+$which=$ARGV[0];shift;
+$inter=$ARGV[0];shift;
+$which="fit" unless defined($which);
+
+open (REF,$off);
+while(<REF>)
+{
+if (/RefIdx/) {
+$ind=1;
+
+while ($ind >0 ){
+
+  $_=<REF>;chomp;
+  @nrec=split;
+  $ind=substr($nrec[1],0,1);
+ # print $_."\n";
+  $prt=1;
+  if ( defined($inter) ){ $prt=0 unless $nrec[1] =~ /$inter/i; }
+  $fx=$nrec[@nrec-4] if $which =~ /ref/i;
+  $fx=$nrec[@nrec-3] if $which =~ /fit/i;
+  $fx=$nrec[@nrec-2] if $which =~ /dif/i;
+  for ($i=0;$i<2;$i++) {
+    $_=<REF>;chomp;
+    @nrec=split;
+    $f[$i]=$nrec[@nrec-4] if $which =~ /ref/i;
+    $f[$i]=$nrec[@nrec-3] if $which =~ /fit/i;
+    $f[$i]=$nrec[@nrec-2] if $which =~ /dif/i;
+  }
+
+#  print $prt."\n";
+  print $fx."  ".$f[0]."   ".$f[1]."\n" if $ind >0 and $prt==1;
+#  $_=<REF>;
+}
+
+}
+}
+
+

@@ -1,0 +1,90 @@
+#!/usr/bin/perl
+#This routine updates the charge lattice section in Gaussian input file.
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== pxyz_gaussian_upd_lattice - Gaussian Charge Lattice Update ===\n\n";
+  print "PURPOSE:\n";
+  print "  Updates the charge lattice section in Gaussian input files for QM/MM calculations.\n";
+  print "  Adds MM point charges around the QM region for proper electrostatic embedding.\n\n";
+  print "USAGE:\n";
+  print "  pxyz_gaussian_upd_lattice gaussian.inp charge_info [file.pxyz]\n";
+  print "  pxyz_gaussian_upd_lattice template.gjf gaussian.chginfo mm_atoms.pxyz > qmmm.gjf\n\n";
+  print "PARAMETERS:\n";
+  print "  gaussian.inp  - Gaussian template file containing 'charge_latt' keyword\n";
+  print "  charge_info   - File providing partial charges for atom types\n";
+  print "  file.pxyz     - Coordinate data (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - Gaussian template file with 'charge_latt' placeholder keyword (case-insensitive)\n";
+  print "  - Charge info file format: 'atomname charge'\n";
+  print "  - .pxyz format: 'atomname x y z molname mark'\n\n";
+  print "OUTPUT:\n";
+  print "  - Complete Gaussian input file written to stdout with updated charge lattice\n";
+  print "  - Warning to stderr if issues with charge translation\n\n";
+  print "DETAILS:\n";
+  print "  - Searches for 'charge_latt' keyword (case-insensitive) in template\n";
+  print "  - Creates point charge array with format: 'x y z charge'\n";
+  print "  - Uses high precision formatting (16.8f) for coordinates and charges\n";
+  print "  - Dies with error if charge not found for any atom type\n";
+  print "  - Essential for QM/MM calculations with MM point charges\n";
+  print "  - Continues until blank line after charge lattice section\n\n";
+  print "CHARGE INFO FILE FORMAT:\n";
+  print "  # Comments start with #\n";
+  print "  HW1      0.6645\n";
+  print "  HW2      0.6645\n";
+  print "  MW      -1.3290\n\n";
+  print "EXAMPLES:\n";
+  print "  pxyz_gaussian_upd_lattice template.gjf gaussian.chginfo mm_charges.pxyz > final.gjf\n";
+  print "  pxyz_gaussian_upd_lattice qm.gjf chginfo < mm_region.pxyz > qmmm.gjf\n\n";
+  print "TEMPLATE REQUIREMENT:\n";
+  print "  Template must contain 'charge_latt' keyword where point charges should be inserted.\n";
+  print "  Example template section:\n";
+  print "  geometry\n";
+  print "  (QM coordinates here)\n\n";
+  print "  charge_lattice\n";
+  print "  (MM point charges will be inserted here)\n\n";
+  print "WORKFLOW:\n";
+  print "  1. Update geometry: pxyz_gaussian_upd_geom template.gjf nucinfo qm.pxyz > step1.gjf\n";
+  print "  2. Add MM charges: pxyz_gaussian_upd_lattice step1.gjf chginfo mm.pxyz > final.gjf\n\n";
+  print "SEE ALSO:\n";
+  print "  pxyz_gaussian_upd_geom - Update geometry section for QM atoms\n\n";
+}
+
+$templ=$ARGV[0];shift; #This is Gaussian input file
+$chginfo=$ARGV[0];shift; #This is charge information
+
+die "ERROR: Molpro template file: $templ expected!\n" unless -e $templ;
+die "ERROR: NameTranslation file: $chginfo expected!\n" unless -e $chginfo;
+$shlwarn=0;
+
+open (charge,"<", $chginfo);
+while (<charge>){
+chomp;
+if ((substr $_, 0, 1) eq "#") {next;}
+($name,$chgval)=split;
+$chg{$name} = $chgval;
+}
+
+
+open (GAU,"<", $templ); 
+while (<GAU>) {
+ unless (/charge_latt/i) {print ;}
+ else {
+   $_=<>;chomp;$natms=$_;
+   $_=<>;
+   for($i=0;$i<$natms;$i++) {
+     $_=<>; chomp; ($nam, $xxx, $yyy, $zzz)=split;
+     die "ERROR: No partical charge found for $nam, Please check $chginfo file!" unless exists($chg{$nam});
+     printf ("%16.8f %16.8f %16.8f %16.8f\n", $xxx,$yyy,$zzz,$chg{$nam});
+   }
+   do {$_=<GAU>} until ( $_ =~ /^\s*$/);
+   print $_;
+ }
+} 
+
+print STDERR "Warning: At least one atom name is not in the NameTranslation file.\n" if ($shlwarn);
+

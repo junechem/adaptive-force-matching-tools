@@ -1,0 +1,121 @@
+#!/usr/bin/perl
+# In GAMESS the partial charges are supplied as part of the EFP fragment 
+# This script handles this fragment section to provide location of partial charges.
+# GAMESS limit the size of each fragment. This script will only work if all charges fit within one fragment.
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== pxyz_gms_upd_frag - GAMESS EFP Fragment Generator ===\n\n";
+  print "PURPOSE:\n";
+  print "  Generates EFP fragment section for GAMESS QM/MM calculations with MM point charges.\n";
+  print "  Handles MM charges through EFP (Effective Fragment Potential) method.\n\n";
+  print "USAGE:\n";
+  print "  pxyz_gms_upd_frag template.inp charge_info [file.pxyz]\n";
+  print "  pxyz_gms_upd_frag template.inp gms.chginfo mm_region.pxyz > qmmm_gamess.inp\n\n";
+  print "PARAMETERS:\n";
+  print "  template.inp  - GAMESS template with \$EFRAG section\n";
+  print "  charge_info   - Partial charge information file\n";
+  print "  file.pxyz     - MM coordinate data (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - GAMESS template file with '\$EFRAG' section placeholder\n";
+  print "  - Charge info file format: 'atomname charge'\n";
+  print "  - .pxyz format: 'atomname x y z molname mark'\n\n";
+  print "OUTPUT:\n";
+  print "  - Complete GAMESS input with EFP fragment section written to stdout\n";
+  print "  - Dies with error if charge not found for any atom\n\n";
+  print "DETAILS:\n";
+  print "  - Converts coordinates from Angstrom to Bohr (multiply by 1.8897259885789233)\n";
+  print "  - Creates three sections: coordinate definition, fragment coordinates, monopoles\n";
+  print "  - Adds unique identifiers to atoms (e.g., \"C0M0\", \"H1M1\")\n";
+  print "  - **LIMITATION**: Only works if all charges fit within one EFP fragment\n";
+  print "  - Essential for GAMESS QM/MM calculations with point charges\n";
+  print "  - Preserves template content until \$EFRAG section\n\n";
+  print "COORDINATE CONVERSION:\n";
+  print "  - Input .pxyz coordinates in Angstrom\n";
+  print "  - EFP fragment coordinates converted to Bohr\n";
+  print "  - Conversion factor: 1.8897259885789233 Bohr/Angstrom\n\n";
+  print "EFP FRAGMENT STRUCTURE:\n";
+  print "  \$EFRAG section defines:\n";
+  print "  1. Fragment name (extracted from template)\n";
+  print "  2. Coordinate definitions with atom identifiers\n";
+  print "  3. Fragment coordinates in Bohr with zero charges\n";
+  print "  4. Monopole charges with atom-charge mapping\n\n";
+  print "CHARGE INFO FILE FORMAT:\n";
+  print "  # Comments start with #\n";
+  print "  HW1      0.4238\n";
+  print "  OW      -0.8476\n";
+  print "  MW      -1.3290\n\n";
+  print "OUTPUT SECTIONS:\n";
+  print "  1. Coordinate Definition:\n";
+  print "     H1M0    31.26000   29.05000   54.94000\n";
+  print "  2. Fragment Coordinates (Bohr):\n";
+  print "     H1M0    59.098    54.875   103.848   0   0\n";
+  print "  3. Monopoles:\n";
+  print "     H1M0    0.4238\n\n";
+  print "EXAMPLES:\n";
+  print "  pxyz_gms_upd_frag template.inp gms.chginfo mm_region.pxyz > qmmm_gamess.inp\n";
+  print "  pxyz_gms_upd_frag qm.inp chginfo < mm_charges.pxyz > final.inp\n\n";
+  print "TEMPLATE REQUIREMENT:\n";
+  print "  Template must contain '\$EFRAG' section with fragment name definition.\n";
+  print "  Example template section:\n";
+  print "  \$EFRAG\n";
+  print "  FRAGNAME=WATER\n";
+  print "  (EFP fragment data will be inserted here)\n\n";
+  print "LIMITATIONS:\n";
+  print "  - GAMESS limits EFP fragment size\n";
+  print "  - All MM charges must fit within single fragment\n";
+  print "  - Large MM regions may exceed GAMESS fragment limits\n";
+  print "  - Consider splitting large MM regions if needed\n\n";
+  print "WORKFLOW:\n";
+  print "  1. Update QM geometry: pxyz_gms_upd_geom template.inp nucinfo qm.pxyz > step1.inp\n";
+  print "  2. Add MM charges: pxyz_gms_upd_frag step1.inp chginfo mm.pxyz > final.inp\n\n";
+  print "SEE ALSO:\n";
+  print "  pxyz_gms_upd_geom - Update geometry section for QM atoms\n\n";
+}
+ 
+$templ=$ARGV[0];shift; #Gamess template file.
+$chginfo=$ARGV[0];shift; # partical charge information.
+
+die "ERROR: GAMESS template file: $templ expected!\n" unless -e $templ;
+die "ERROR: Partical charge file: $chginfo expected!\n" unless -e $chginfo;
+
+$bnk='   '; $bor=1.8897259885789233;
+
+open (charge,"<", $chginfo);
+while (<charge>){
+chomp;
+if ((substr $_, 0, 1) eq "#") {next;}
+($name,$chgval)=split;
+$chg{$name} = $chgval;
+}
+
+open (gms,"<",$templ);
+do {$_=<gms>; print;} until (/\$EFRAG/);
+$_=<gms>; print;$_=<gms>; print; chomp;
+($foo,$fragname)=split("=");
+
+$frag="\n \$"."$fragname\n";
+$frag=$frag."  Fragment Definition.\n";
+$frag=$frag."  COORDINATES (BOHR)\n";
+$monopoles=' MONOPOLES'."\n";
+
+$_=<>;chomp;$natms=$_; #start pxyz file
+$_=<>;$pbc=$_;
+for ($i=0;$i<$natms;$i++)
+{
+$_=<>;chomp; ($nam, $xxx, $yyy, $zzz,$mol,$mar)=split;
+die "ERROR: No partial charge found for $nam, Please check $chginfo file!" unless exists($chg{$nam});
+$efrag=$efrag.$bnk.$nam."M".$i.$bnk.$xxx.$bnk.$yyy.$bnk.$zzz."\n";
+$frag=$frag.$bnk.$nam."M".$i.$bnk.$xxx*$bor.$bnk.$yyy*$bor.$bnk.$zzz*$bor.$bnk."0$bnk"."0\n";
+$monopoles=$monopoles.$bnk.$nam."M".$i.$bnk.$chg{$nam}."\n";
+}
+
+$efrag=$efrag." \$END\n";
+$frag=$frag.$bnk."STOP\n";
+$monopoles=$monopoles.$bnk.'STOP'."\n".' $END';
+
+print $efrag; print $frag; print $monopoles;

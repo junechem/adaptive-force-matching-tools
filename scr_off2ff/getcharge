@@ -1,0 +1,66 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== getcharge - Charge Calculator ===\n\n";
+    print "PURPOSE:\n";
+    print "  Calculate individual charges from charge products using mathematical operations.\n";
+    print "  Utility for converting charge products to individual atomic charges.\n\n";
+    print "USAGE:\n";
+    print "  getcharge charge_product divisor\n";
+    print "  getcharge 0.18953 0.6645\n";
+    print "  getcharge 0.25 sqrtp\n";
+    print "  getcharge 0.25 sqrtn\n\n";
+    print "PARAMETERS:\n";
+    print "  charge_product - Numerical charge product value\n";
+    print "  divisor        - Divisor (number) or operation (sqrtp/sqrtn)\n\n";
+    print "INPUT:\n";
+    print "  - Charge product (q1 * q2)\n";
+    print "  - Mathematical operation specification\n\n";
+    print "OUTPUT:\n";
+    print "  - Calculated individual charge to stdout (5 decimal places)\n\n";
+    print "DETAILS:\n";
+    print "  - Division: charge = charge_product / divisor\n";
+    print "  - Square root positive: charge = +sqrt(charge_product)\n";
+    print "  - Square root negative: charge = -sqrt(charge_product)\n";
+    print "  - Input validation for operation types\n";
+    print "  - Precision: 5 decimal places in output\n\n";
+    print "OPERATIONS:\n";
+    print "  numeric    - Division: charge_product / number\n";
+    print "  sqrtp      - Positive square root: +sqrt(charge_product)\n";
+    print "  sqrtn      - Negative square root: -sqrt(charge_product)\n\n";
+    print "EXAMPLES:\n";
+    print "  getcharge 0.18953 0.6645    # Result: 0.28523\n";
+    print "  getcharge 0.25 sqrtp        # Result: 0.50000\n";
+    print "  getcharge 0.25 sqrtn        # Result: -0.50000\n";
+    print "  getcharge 1.44 1.2          # Result: 1.20000\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Extract charge product from OFF file\n";
+    print "  2. Determine operation (division, sqrt)\n";
+    print "  3. Calculate: getcharge product operation\n";
+    print "  4. Use result in charge assignment\n\n";
+    print "ERROR HANDLING:\n";
+    print "  - Dies if more than 2 parameters provided\n";
+    print "  - Dies if second parameter is not valid operation\n";
+    print "  - Validates numeric and keyword inputs\n\n";
+    print "SEE ALSO:\n";
+    print "  offget_charge      - Extract charges from OFF files\n";
+    print "  off2ff_charge      - Apply charges in conversions\n\n";
+}
+#calculate chareges from charge product
+$chgprod=$ARGV[0];
+$chgdivid=$ARGV[1];
+die "maximum 2 parameters.\n" if @ARGV > 2;
+
+$charge=sqrt($chgprod) if $ARGV[1] eq 'sqrtp';
+$charge=-sqrt($chgprod) if $ARGV[1] eq 'sqrtn';
+
+$charge=$chgprod/$chgdivid if $ARGV[1] =~ /^-?\d+(\.\d+)?$/;
+
+die "the second input must be 'sqrt[pn]' or a number." unless ($ARGV[1] =~ /sqrt(n|p)/ or $ARGV[1] =~ /^-?\d+(\.\d+)?$/);
+
+printf("%.5f\n",$charge);
+#print $charge."\n";

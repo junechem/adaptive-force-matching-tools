@@ -1,0 +1,87 @@
+#!/usr/bin/perl
+#This routine generate charge lattice for molpro. 
+#$flag need to change for different case. 
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== pxyz_molpro_gen_lattice - Molpro Charge Lattice Generator ===\n\n";
+  print "PURPOSE:\n";
+  print "  Generates charge lattice files for Molpro QM/MM calculations. Creates standalone\n";
+  print "  lattice files that are referenced by the main Molpro input file.\n\n";
+  print "USAGE:\n";
+  print "  pxyz_molpro_gen_lattice charge_info [file.pxyz]\n";
+  print "  pxyz_molpro_gen_lattice molpro.chginfo mm_charges.pxyz > lattice.inp\n\n";
+  print "PARAMETERS:\n";
+  print "  charge_info  - File with partial charges and optional flags\n";
+  print "  file.pxyz    - Coordinate data (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - Charge info file format: 'atomname charge [flag]'\n";
+  print "  - .pxyz format: 'atomname x y z molname mark'\n\n";
+  print "OUTPUT:\n";
+  print "  - Molpro-formatted charge lattice written to stdout\n";
+  print "  - Dies with error if charge not found for any atom\n\n";
+  print "DETAILS:\n";
+  print "  - Creates standalone charge lattice file (not template update)\n";
+  print "  - Format: 'x, y, z, charge, flag' (comma-separated)\n";
+  print "  - Supports three-column charge_info: 'atomname charge flag'\n";
+  print "  - Default flag value is 0 if not specified\n";
+  print "  - Used as external file referenced by main Molpro input\n";
+  print "  - Includes comment header and atom count\n\n";
+  print "CHARGE INFO FILE FORMAT:\n";
+  print "  # Comments start with #\n";
+  print "  HW1      0.4238     1\n";
+  print "  OW      -0.8476     0\n";
+  print "  MW      -1.3290        # flag defaults to 0\n\n";
+  print "OUTPUT FORMAT:\n";
+  print "  comment\n";
+  print "  150\n";
+  print "  31.26000,   29.05000,   54.94000,  -0.8476,  0\n";
+  print "  30.78000,   28.03000,   54.67000,   0.4238,  1\n\n";
+  print "EXAMPLES:\n";
+  print "  pxyz_molpro_gen_lattice molpro.chginfo mm_region.pxyz > charges.inp\n";
+  print "  pxyz_molpro_gen_lattice chginfo < mm_charges.pxyz > lattice.inp\n\n";
+  print "MOLPRO INTEGRATION:\n";
+  print "  Main input file references generated lattice:\n";
+  print "  LATTICE, INFILE=charges.inp\n";
+  print "  \n";
+  print "  Use molpro_replace_field to update filename:\n";
+  print "  molpro_replace_field \"INFILE\" \"new_charges.inp\" main.inp > updated.inp\n\n";
+  print "WORKFLOW:\n";
+  print "  1. Generate geometry: pxyz_molpro_upd_geom template.inp nucinfo qm.pxyz > main.inp\n";
+  print "  2. Generate lattice: pxyz_molpro_gen_lattice chginfo mm.pxyz > charges.inp\n";
+  print "  3. Update reference: molpro_replace_field \"INFILE\" \"charges.inp\" main.inp > final.inp\n\n";
+  print "SEE ALSO:\n";
+  print "  pxyz_molpro_upd_geom - Update geometry section for QM atoms\n";
+  print "  molpro_replace_field - Update comma-separated fields in Molpro files\n\n";
+}
+
+$chginfo=$ARGV[0];shift;
+
+die "ERROR: Partial charge file: $chginfo expected!\n" unless -e $chginfo;
+#print STDERR "Point charge information file: $chginfo.\n";
+
+open (charge,"<", $chginfo);
+while (<charge>){
+chomp;
+if ((substr $_, 0, 1) eq "#") {next;} 
+($name,$chgval,$flagval)=split;
+$chg{$name} = $chgval;
+$flag{$name} = 0 ;
+$flag{$name} = $flagval if $flagval;
+}
+
+$_=<>;chomp;$natms=$_;
+$_=<>;chomp;$comment=$_;
+
+print "comment\n";
+print $natms."\n";
+for ($i=0;$i<$natms;$i++)
+{
+$_=<>; chomp; ($nam,$xxx,$yyy,$zzz)=split;
+die "ERROR: No partial charge information found for $nam, Please check $chginfo file!" unless exists($chg{$name});
+print "$xxx,   $yyy,   $zzz,  $chg{$nam},  $flag{$nam}\n";
+}

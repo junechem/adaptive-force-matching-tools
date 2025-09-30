@@ -1,0 +1,129 @@
+#!/usr/bin/perl
+
+sub print_help {
+  print <<'HELP';
+
+ff_gen_charge_constr - Generate charge constraint equations for force field fitting
+
+USAGE:
+    ff_gen_charge_constr COU_terms constraint_equation
+
+DESCRIPTION:
+    Generates charge constraint equations for CRYOFF force field optimization by
+    mapping charge product pairs to constraint indices and processing constraint
+    equation definitions.
+
+ARGUMENTS:
+    COU_terms          File containing Coulomb charge product pairs (atom type pairs)
+    constraint_equation File defining constraint equations and atomic charges
+
+INPUT FILE FORMATS:
+
+    COU_terms file (two-column format):
+        atm1  atm2
+        C     H
+        O     H
+        N     C
+        ...
+
+        - Lists atom type pairs for charge products
+        - Order-independent (C H = H C)
+        - Each pair assigned sequential index number
+
+    constraint_equation file:
+        # num1 atm1 ... numN atmN ... factor
+        1.0 C1 1.0 H1 -1.0 C2 2.0
+        weight_value
+        atm2  charge2
+        atm3  charge3
+        ...
+
+        Line 1: Equation definition (triplets: coefficient atom_type, last value = scaling factor)
+        Line 2: Weight for this constraint
+        Lines 3+: Atom types and their charges
+
+OUTPUT FORMAT:
+    ncharge num1 index1 num2 index2 ... constraint_value weight
+
+    - ncharge: Number of charge products in equation
+    - num1, num2, ...: Coefficients from equation
+    - index1, index2, ...: Indices from COU_terms mapping
+    - constraint_value: Charge × scaling factor
+    - weight: Weight for constraint equation
+    - Errors with missing pairs sent to stderr with "_not_found_" marker
+
+EXAMPLE:
+    # Create COU terms
+    cat > cou_terms.dat << EOF
+    C  H
+    O  H
+    N  C
+    EOF
+
+    # Create constraint equation
+    cat > constraint.dat << EOF
+    # Linear combination: 1.0*C + 1.0*H scaling=2.0
+    1.0 C 1.0 H 2.0
+    10.0
+    H  0.4
+    C -0.8
+    EOF
+
+    # Generate constraints
+    ff_gen_charge_constr cou_terms.dat constraint.dat > constraints.out
+
+INTEGRATION:
+    - Enforces physical relationships between charges during optimization
+    - Maintains charge neutrality in force field fitting
+    - Compatible with CRYOFF optimization workflow
+    - Supports complex multi-atom charge relationships
+
+HELP
+  exit;
+}
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || @ARGV < 2)
+{
+  print_help();
+}
+
+$QQpair=$ARGV[0];shift;$equation=$ARGV[0];
+
+#COU terms
+open (QQ,$QQpair);
+$index=0;
+while(<QQ>) { chomp;
+  ($atm1,$atm2)=split;
+  $pair=$atm1." ".$atm2;
+  $pair=$atm2." ".$atm1 if ($atm2 lt $atm1);
+  $QQindex{$pair}= ++$index;
+}
+
+open(EQ,$equation);
+do{ $_=<EQ> }while substr($_, 0, 1) eq "#"; @equ=split;
+$ncharge=(@equ-1)/3;
+die "please check input line.$_.\n" unless ($ncharge == int($ncharge));
+print "# Eq.: ".$_;
+$_=<EQ>;chomp; $weight=$_; #read in weight
+
+while(<EQ>)
+{
+next if  substr($_, 0, 1) eq "#";
+($atm2,$atmc)=split; #atom name $atm2 and atom charge $atmc
+
+$buf="$ncharge ";
+for ($i=0;$i<$ncharge;$i++){
+$num=$equ[$i*3]; $atm1=$equ[$i*3+1];
+$pair=$atm1." ".$atm2;
+$pair=$atm2." ".$atm1 if ($atm2 lt $atm1);
+if ($QQindex{$pair}){
+$buf = $buf.$num." ".$QQindex{$pair}." " ;}
+else {
+$buf = $buf.$num." _not_found_ " ; }
+}
+if ($buf =~ /_not_found_/) {
+print STDERR $buf,$atmc*$equ[-1]," $weight\n";}
+else{
+print $buf,$atmc*$equ[-1]," $weight\n";}
+}
+

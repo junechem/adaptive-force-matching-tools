@@ -1,0 +1,227 @@
+#!/usr/bin/perl
+
+# off2top - Convert OFF library files to topology files using protocol-driven operations
+#
+# This script is the primary tool for converting AFM-optimized force field parameters
+# from OFF format to molecular dynamics topology files, primarily for GROMACS.
+
+if (@ARGV < 4 || $ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    print_help();
+    exit(@ARGV < 4 ? 1 : 0);
+}
+
+sub print_help {
+    print << 'EOF';
+
+NAME
+    off2top - Convert OFF library files to topology files using protocol-driven operations
+
+PURPOSE
+    This script converts AFM-optimized force field parameters from OFF format to
+    molecular dynamics topology files (.top/.itp), primarily for GROMACS simulations.
+    It uses protocol files to define conversion operations and supports both molecule
+    definitions and parameter file approaches.
+
+USAGE
+    off2top protocol_file input.off template.top output.top
+
+PARAMETERS
+    protocol_file - Protocol file defining conversion operations
+    input.off     - Input OFF library file with force field parameters
+    template.top  - Template topology file (GROMACS .top/.itp format)
+    output.top    - Output topology file with updated parameters
+
+INPUT
+    • Protocol file: Defines conversion operations with format:
+      operation_type source_spec destination_spec unit_conversion patterns
+    
+    • OFF file: Contains Inter-Potential and Molecular-Definition sections
+      with optimized force field parameters from AFM calculations
+    
+    • Template topology: GROMACS-format topology file with proper structure
+      and sections for parameter placement
+
+OUTPUT
+    • Updated topology file with parameters transferred from OFF file
+    • Will not overwrite existing output files (safety feature)
+    • Progress messages showing each protocol operation
+
+PROTOCOL OPERATIONS
+    Parameter File Operations (Recommended):
+    
+    pam.charge - Update charges in parameter files
+    Format: pam.charge OFF_source TOP_destination unit_conversion patterns
+    Example: pam.charge COU,atm1,0.6645,ln1-40 nonbond_params,col7,ln1-100 1.0 default
+    
+    pam.nonbond - Update non-bonded parameters
+    Format: pam.nonbond OFF_section,column TOP_section,column,lines unit_conversion patterns
+    Example: pam.nonbond STRC,col3,ln1-20 nonbond_params,col4,ln1-100 4.184 type=atmtype
+    
+    pam.bonded - Update bonded parameters (bonds, angles, dihedrals)
+    Format: pam.bonded OFF_section,column TOP_section,column,lines unit_conversion patterns
+    Example: pam.bonded ALA7,col4 bondtypes,col4,ln1-50 1.0 default
+    
+    Molecule Definition Operations:
+    
+    mol.charge - Update charges in molecule definitions
+    Format: mol.charge OFF_source TOP_destination unit_conversion patterns
+    Example: mol.charge COU,atm1,0.6645,ln1-40 ALA7,col7,ln1-73 1.0 default
+    
+    mol.bonded - Update bonded parameters in molecules
+    Format: mol.bonded OFF_section,column TOP_section,column,lines unit_conversion patterns
+    Example: mol.bonded ALA7,col4 ALA7,bonds,col4,ln1-90 4.184 default
+    
+    mol.define - Update molecular definitions and atom types
+    Format: mol.define OFF_section,column TOP_section,column,lines unit_conversion patterns
+    Example: mol.define ALA7,col4 ALA7,atoms,col4,ln1 1.0 default
+    
+    List Generation Operations:
+    
+    list.nonbond - Generate non-bonded interaction lists
+    Format: list.nonbond exclusion_patterns TOP_section patterns
+    Example: list.nonbond HW~MW,HW~OW,HMM,MMM nonbond_params,1,1.0,1.0 default
+    
+    list.bonded - Generate bonded interaction lists
+    Format: list.bonded molecule_name TOP_section patterns
+    Example: list.bonded ALA7 bondtypes,1 type=atmtype,intkey=har
+
+DETAILS
+    The script works by:
+    1. Reading protocol file line by line
+    2. For each operation, calling appropriate off2top_* subscript
+    3. Using temporary files for safe updates
+    4. Preventing overwrite of existing output files
+    5. Providing progress feedback for each operation
+    
+    Parameter File vs Molecule Approach:
+    - pam.* operations (recommended): Update parameter type definitions
+    - mol.* operations: Update molecule-specific definitions
+    - Parameter file approach provides better flexibility and reusability
+    
+    Unit Conversions:
+    - Automatic unit conversion between OFF and topology formats
+    - Common conversions: energy (kcal/mol ↔ kJ/mol), distances (Å ↔ nm)
+    - Unit conversion factor specified in protocol
+
+PATTERNS
+    • default: Standard atom type matching
+    • type=atmtype: Use atom type mapping from external file
+    • extra:col5=col8: Copy additional columns during transfer
+    • Various combinations supported for specific use cases
+
+EXAMPLES
+    off2top protocol.off2top system.off template.top output.top
+        Convert using standard protocol file
+    
+    Protocol file content example:
+    pam.charge COU,atm1,0.6645,ln1-40 nonbond_params,col7,ln1-100 1.0 default
+    pam.nonbond STRC,col3,ln1-20 nonbond_params,col4,ln1-100 4.184 type=atmtype
+    list.nonbond HW~MW,HW~OW nonbond_params,1,1.0,1.0 default
+
+INTEGRATION
+    This script integrates with AFMTools workflows:
+    • Input: AFM-optimized parameters from force field fitting
+    • Processing: Protocol-driven parameter transfer and conversion
+    • Output: Production-ready topology files for MD simulations
+    • Validation: Compatible with GROMACS simulation engines
+
+DEPENDENCIES
+    - off2top_* subscripts for specific operations
+    - offget_* utilities for parameter extraction
+    - Compatible OFF and topology file formats
+    - Proper protocol file syntax
+
+SAFETY FEATURES
+    - Temporary file usage prevents corruption of input files
+    - Output overwrite protection
+    - Progress reporting for operation tracking
+    - Error handling for invalid protocol operations
+
+EOF
+}
+
+$protfile=$ARGV[0];$inputoff=$ARGV[1];$inptop = $ARGV[2]; $outtop = $ARGV[3];
+$tmpfile = "/tmp/tempoff2top.$$"; $tmpfil2 = "/tmp/tempoff2top2.$$";
+system ("cp $inptop $tmpfile");
+die "no $tmpfile \n" unless ( -e $tmpfile);
+die "script will not overwrite existing output\n" if (-e $outtop);
+open(PRO,$protfile);
+while(<PRO>)
+{
+if ( $_ =~ /^\s*$|#/) {next;}
+print "\nProtocol: ";print;
+($what)=split;
+
+#nonbonded list in parameter files
+if ($what =~ /list.nonbond/i) {
+  ($what,$offpam,$toppam,$pattern)=split;
+  print "Update nonbonded list for parameter file $intop :\n";
+  system("off2top_nonbonded_list  $offpam  $toppam  $pattern  $inputoff $tmpfile $tmpfil2 ; mv $tmpfil2 $tmpfile");}
+
+#bonded list in parameter files
+elsif ($what =~ /list.bonded/i) {
+  ($what,$offpam,$toppam,$pattern)=split;
+  print "Update bonded list for parameter file $intop :\n";
+  system("off2top_bonded_list  $offpam  $toppam  $pattern  $inputoff $tmpfile $tmpfil2 ; mv $tmpfil2 $tmpfile");}
+
+#bonded and nonbonded parameters in parameter files
+elsif ($what =~ /pam.charge/i) {
+  ($what,$offpam,$toppam,$unitcov,$pattern)=split;
+  print "Update charges for parmeter file $intop:\n";
+  system("off2top_nonbonded_charge  $offpam  $toppam  $unitcov $pattern  $inputoff $tmpfile $tmpfil2 ; mv $tmpfil2 $tmpfile");}
+
+elsif ($what =~ /pam.nonbond/i) {
+  ($what,$offpam,$toppam,$unitcov,$pattern)=split;
+  print "Update nonbonded parameters for parameter file $intop :\n";
+  system("off2top_nonbonded_param  $offpam  $toppam  $unitcov $pattern $inputoff $tmpfile $tmpfil2 ; mv $tmpfil2 $tmpfile")}
+
+elsif($what =~ /pam.bonded/i) {
+  ($what,$offpam,$toppam,$unitcov,$pattern)=split;
+  print "Update bond parameters for parmeter file $intop :\n";
+  system("off2top_bonded_param $offpam  $toppam $unitcov $pattern $inputoff $tmpfile $tmpfil2 ; mv $tmpfil2 $tmpfile"); }
+
+#elsif ($what =~ /pam.angle/i) {
+#  ($what,$offpam,$toppam,$unitcov,$pattern)=split;
+#  print "Update angle parameters for parmeter file $intop :\n";
+#  system("off2top_bonded_param  $offpam  $toppam  $unitcov $pattern  $inputoff $tmpfile $tmpfil2 ; mv $tmpfil2 $tmpfile");}
+#
+#elsif ($what =~ /pam.dih/i) {
+#  ($what,$offpam,$toppam,$unitcov,$pattern)=split;
+#  print "Update dihedral parameters for parmeter file $intop :\n";
+#  system("off2top_bonded_param  $offpam  $toppam  $unitcov $pattern  $inputoff $tmpfile $tmpfil2 ; mv $tmpfil2 $tmpfile");}
+
+#bonded parameters in molecule definition
+
+elsif ($what =~ /mol.charge/i) {
+  ($what,$offpam,$toppam,$unitcov,$pattern)=split;
+  $pattern="default" if (!$pattern);
+  print "Update parameters for molecule definition file $intop :\n";
+  system("off2top_molecule_charge  $offpam  $toppam  $unitcov $pattern  $inputoff $tmpfile $tmpfil2 ; mv $tmpfil2 $tmpfile");}
+
+elsif ($what =~ /mol.bonded/i) {
+  ($what,$offpam,$toppam,$unitcov,$pattern)=split;
+  print "Update parameters for molecule definition file $intop :\n";
+  system("off2top_molecule_param  $offpam  $toppam $unitcov $pattern  $inputoff $tmpfile $tmpfil2 ; mv $tmpfil2 $tmpfile");}
+
+elsif ($what =~ /mol.def/i) {
+  ($what,$offpam,$toppam,$unitcov,$pattern)=split;
+  print "Update parameters for molecule definition file $intop :\n";
+  system("off2top_molecule_define  $offpam  $toppam $unitcov $pattern  $inputoff $tmpfile $tmpfil2 ; mv $tmpfil2 $tmpfile");}
+
+#elsif ($what =~ /mol.angle/i) {
+#  ($what,$offpam,$toppam,$unitcov,$pattern)=split;
+#  print "Update parameters for molecule definition file $intop:\n";
+#  system("off2top_molecule_param  $offpam  $toppam $unitcov $pattern $inputoff $tmpfile $tmpfil2 ; mv $tmpfil2 $tmpfile");}
+#
+#elsif ($what =~ /mol.dih/i) {
+#  ($what,$offpam,$toppam,$unitcov,$pattern)=split;
+#  print "Update parameters for molecule definition file $intop :\n";
+#  system("off2top_molecule_param  $offpam  $toppam  $unitcov $pattern  $inputoff $tmpfile $tmpfil2 ; mv $tmpfil2 $tmpfile");}
+
+else { 
+  die  "No rules for this type: $what.\n";
+}
+
+} #end while
+
+system ("mv $tmpfile $outtop") if uc(substr $what,0,3) ne "TAB";

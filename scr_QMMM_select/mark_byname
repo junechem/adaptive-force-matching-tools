@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+# This routine mark atoms if the molecule name contains the string $nam
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help { 
+  print "\n=== mark_byname - Molecular Name-Based Selection ===\n\n";
+  print "PURPOSE:\n";
+  print "  Marks all molecules containing a specific name pattern. Performs case-insensitive\n";
+  print "  pattern matching on molecule names and marks all atoms in matching molecules.\n\n";
+  print "USAGE:\n";
+  print "  mark_byname targetname mark_val [file.pxyz]\n";
+  print "  mark_byname UNK 4 < system.pxyz > marked.pxyz\n\n";
+  print "PARAMETERS:\n";
+  print "  targetname  - String pattern to search for in molecule names (case-insensitive)\n";
+  print "  mark_val    - Mark value to assign to matching molecules\n";
+  print "  file.pxyz   - Input .pxyz file (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - .pxyz format file (via stdin or file argument)\n\n";
+  print "OUTPUT:\n";
+  print "  - Modified .pxyz file written to stdout with updated marks\n\n";
+  print "DETAILS:\n";
+  print "  - Uses Perl regex pattern matching with case-insensitive flag\n";
+  print "  - Marks ALL atoms belonging to molecules whose name contains the target string\n";
+  print "  - Useful for selecting specific molecule types (e.g., solute vs solvent)\n";
+  print "  - Does not modify atoms in non-matching molecules\n\n";
+  print "EXAMPLES:\n";
+  print "  mark_byname SOL 1 system.pxyz > marked.pxyz    # Mark all solvent molecules\n";
+  print "  mark_byname UNK 4 system.pxyz > marked.pxyz    # Mark solute molecules\n\n";
+}
+
+ 
+$bnk="   ";
+
+$nam=$ARGV[0];shift;
+$val=$ARGV[0];shift;
+
+$natm=<>;chomp($natm);
+print $natm."\n";
+$_=<>;
+print $_;
+
+for ($i=0;$i<$natm;$i++)
+{
+$_=<>;
+($nam[$i],$xxx[$i],$yyy[$i],$zzz[$i],$mol[$i],$mar[$i])=split;
+if ($mol[$i] =~ /$nam/i ) {$mar[$i]=$val;}
+print $nam[$i].$bnk.$xxx[$i].$bnk.$yyy[$i].$bnk.$zzz[$i].$bnk.$mol[$i].$bnk.$mar[$i]."\n";
+}
+

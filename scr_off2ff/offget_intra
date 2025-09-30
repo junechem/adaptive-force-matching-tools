@@ -1,0 +1,91 @@
+#!/usr/bin/perl
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+    print "\n=== offget_intra - Intramolecular Parameter Extractor ===\n\n";
+    print "PURPOSE:\n";
+    print "  Extract bonded parameters from OFF file Molecular-Definition sections.\n";
+    print "  Retrieves bonds, angles, and dihedrals for specific molecules.\n\n";
+    print "USAGE:\n";
+    print "  offget_intra file.off molecule_name\n";
+    print "  offget_intra system.off UNK\n\n";
+    print "PARAMETERS:\n";
+    print "  file.off      - Input OFF file containing Molecular-Definition section\n";
+    print "  molecule_name - Molecule identifier (case-insensitive matching)\n\n";
+    print "INPUT:\n";
+    print "  - OFF file with Molecular-Definition section\n";
+    print "  - Molecule definitions with 'define' entries\n";
+    print "  - Bonded parameter specifications\n\n";
+    print "OUTPUT:\n";
+    print "  - Molecule definition lines to stdout\n";
+    print "  - All 'define' entries for the specified molecule\n";
+    print "  - Preserves original OFF file formatting\n\n";
+    print "DETAILS:\n";
+    print "  - Searches Molecular-Definition section for molecule matches\n";
+    print "  - Case-insensitive molecule name matching\n";
+    print "  - Extracts molecule definition and all associated 'define' entries\n";
+    print "  - Stops at next molecule or end of section\n";
+    print "  - Preserves parameter relationships and dependencies\n\n";
+    print "MOLECULAR DEFINITION FORMAT:\n";
+    print "  molecule UNK\n";
+    print "  define bond    1 2 HARMONIC 1000.0 1.5\n";
+    print "  define angle   1 2 3 HARMONIC 500.0 109.5\n";
+    print "  define dihedral 1 2 3 4 COSINE 10.0 0.0 1\n\n";
+    print "EXAMPLES:\n";
+    print "  offget_intra system.off UNK     # Extract UNK molecule parameters\n";
+    print "  offget_intra water.off H2O      # Extract water model parameters\n";
+    print "  offget_intra complex.off LIG    # Extract ligand parameters\n\n";
+    print "TYPICAL WORKFLOW:\n";
+    print "  1. Identify molecules: Check OFF file for available molecule names\n";
+    print "  2. Extract parameters: offget_intra input.off MOLECULE\n";
+    print "  3. Process output: Use in force field template generation\n";
+    print "  4. Validate bonds: Check connectivity and parameter ranges\n\n";
+    print "MOLECULE IDENTIFICATION:\n";
+    print "  - Use case-insensitive partial matching\n";
+    print "  - Common names: UNK (unknown), H2O (water), LIG (ligand)\n";
+    print "  - Multiple molecules can be extracted in sequence\n\n";
+    print "SEE ALSO:\n";
+    print "  offget_inter       - Extract intermolecular parameters\n";
+    print "  offget_atmtype     - Get atom types for molecules\n";
+    print "  off2ff             - Convert parameters to FF format\n\n";
+}
+
+$bnk="    ";
+ 
+$filename=$ARGV[0];shift; 
+open (FIL,$filename) || die "can not open file $filename"."\n";
+
+while(<FIL>)
+{
+if (/Molecular-Definition/) {
+  $npot=0;
+  while(<FIL>) {
+    if (/Table-Potential/) { last; } 
+    else {
+      chomp; $tmp=$_;
+      push @pot, "$tmp";
+      $npot++;
+    } 
+  }
+}
+}
+$buf="";
+for ($i=0;$i<@ARGV;$i++)
+{
+  $getmol=$ARGV[$i];
+  for ($j=0;$j<$npot;$j++){
+    $str=$pot[$j];
+    if ($str =~ /$getmol/i) {
+      print $str."\n";
+      for ($k=$j+1;$k<$npot;$k++) {
+        $str=$pot[$k];
+        if ($str =~ /define/) {
+          print $str."\n";
+        } else { $j=$k;last;}
+      } 
+    }
+  }
+}

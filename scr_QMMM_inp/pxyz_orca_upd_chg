@@ -1,0 +1,108 @@
+#!/usr/bin/perl
+# This routine update the charges in the *xyz section of the orca input file
+$bnk="  ";$frz="\$";  # disable freeze by defining $frz="";
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== pxyz_orca_upd_chg - ORCA MM Charge Update ===\n\n";
+  print "PURPOSE:\n";
+  print "  Updates the MM charge section in ORCA QM/MM input files with point charges from .pxyz files.\n";
+  print "  Adds MM point charges around the QM region for proper electrostatic embedding.\n\n";
+  print "USAGE:\n";
+  print "  pxyz_orca_upd_chg template.inp charge_info [file.pxyz]\n";
+  print "  pxyz_orca_upd_chg qm_template.inp orca.chginfo mm_charges.pxyz > qmmm_orca.inp\n\n";
+  print "PARAMETERS:\n";
+  print "  template.inp  - ORCA template with existing *xyz section and Q charges\n";
+  print "  charge_info   - Partial charge information file\n";
+  print "  file.pxyz     - MM coordinate data (optional, reads from stdin if not provided)\n\n";
+  print "INPUT:\n";
+  print "  - ORCA template file with existing '*xyz' section containing 'Q' charge markers\n";
+  print "  - Charge info file format: 'atomname charge'\n";
+  print "  - .pxyz format: 'atomname x y z molname mark'\n\n";
+  print "OUTPUT:\n";
+  print "  - Complete ORCA QM/MM input file written to stdout with updated charges\n";
+  print "  - Dies with error if charge not found for any atom\n\n";
+  print "DETAILS:\n";
+  print "  - Updates charges in existing '*xyz' section (not standalone)\n";
+  print "  - Format: 'Q charge x y z' (with optional '\$' freeze markers)\n";
+  print "  - Skips to existing 'Q' section in template\n";
+  print "  - Variable '\$frz' controls coordinate freezing (default: \"\$\")\n";
+  print "  - Set '\$frz=\"\"' in script to disable freezing\n";
+  print "  - Preserves all ORCA calculation directives\n\n";
+  print "ORCA QM/MM FORMAT:\n";
+  print "  *xyz 0 1\n";
+  print "  C     31.26000   29.05000   54.94000 #1\n";
+  print "  H     30.78000   28.03000   54.67000 #2\n";
+  print "  Q    -0.8476    28.12000\$  27.34000\$  55.89000\$\n";
+  print "  Q     0.4238    29.87000\$  26.78000\$  56.12000\$\n";
+  print "  *\n\n";
+  print "CHARGE INFO FILE FORMAT:\n";
+  print "  # Comments start with #\n";
+  print "  HW1      0.4238\n";
+  print "  OW      -0.8476\n";
+  print "  MW      -1.3290\n\n";
+  print "FREEZE CONTROL:\n";
+  print "  - Default: coordinates frozen with '\$' markers\n";
+  print "  - Frozen format: 'Q charge x\$ y\$ z\$'\n";
+  print "  - Unfrozen format: 'Q charge x y z'\n";
+  print "  - Edit script variable '\$frz' to control freezing\n\n";
+  print "EXAMPLES:\n";
+  print "  pxyz_orca_upd_chg qm_template.inp orca.chginfo mm_charges.pxyz > qmmm_orca.inp\n";
+  print "  pxyz_orca_upd_chg step1.inp chginfo < mm_region.pxyz > final.inp\n\n";
+  print "TEMPLATE REQUIREMENT:\n";
+  print "  Template must already contain '*xyz' section with 'Q' charge placeholders.\n";
+  print "  Example template (after geometry update):\n";
+  print "  *xyz 0 1\n";
+  print "  C  1.0  2.0  3.0\n";
+  print "  Q  (charges will be inserted here)\n";
+  print "  *\n\n";
+  print "WORKFLOW:\n";
+  print "  1. Update QM geometry: pxyz_orca_upd_xyz template.inp nucinfo qm.pxyz > step1.inp\n";
+  print "  2. Add MM charges: pxyz_orca_upd_chg step1.inp chginfo mm.pxyz > final.inp\n\n";
+  print "COORDINATE FREEZING:\n";
+  print "  - Default behavior: MM charges frozen during optimization\n";
+  print "  - Prevents MM atoms from moving during QM geometry optimization\n";
+  print "  - Essential for proper QM/MM embedding calculations\n";
+  print "  - Override by modifying '\$frz' variable in script\n\n";
+  print "SEE ALSO:\n";
+  print "  pxyz_orca_upd_xyz - Update coordinate section for QM atoms\n\n";
+}
+
+$templ=$ARGV[0]; shift; # This is the template file
+$chginfo=$ARGV[0];shift; # This is the nam translation file
+
+die "ERROR: Charge Info file: $chginfo expected!\n" unless -e $chginfo;
+die "ERROR: Template file: $templ expected!\n" unless -e $templ;
+
+open (chginfo,"<", $chginfo); # Open chginfo file. Misnamed right now, [ ] fix later
+while (<chginfo>) {
+chomp;
+if ((substr $_, 0, 1) eq "#") {next;} # Skip comment lines in naminfo file
+($nam, $charge)=split;
+$chg{$nam} = $charge if $charge; # Translate the desired charged sites to have the name Q, which is used for charges in ORCA
+}
+
+open (orca, "<", $templ); # Open the ORCA template file. My method is to redirect the output from the gen_xyz to a "header" file, and use that as the input.templ file for this script
+$_=<orca>;
+do {print;$_=<orca>;} until (/\*\s*xyz/); # * is keyword for beginning of xyz portion of MyMol.inp file
+do {print; $_=<orca>; } until (/\s*Q\s+/);
+do  {$_=<orca>; } until (/\s*\*/);
+$buf=$_;
+
+while (<>)
+{
+chomp; $natms = $_;
+$_ = <>;
+for($i=0;$i<$natms;$i++){
+    $_=<>; chomp; ($nam, $xxx, $yyy, $zzz, $mol, $mar)=split;
+    $tmpchg=$chg{$nam};
+    die "ERROR: No charge found for $nam, Please check $chginfo file!" unless exists($chg{$nam});
+    print $bnk."Q".$bnk.$chg{$nam}.$bnk.$xxx.$frz.$bnk.$yyy.$frz.$bnk.$zzz.$frz."\n";}
+}
+print $buf;
+
+print while (<orca>);
+

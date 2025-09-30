@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+#This routine mark within the molecules of the atoms whose mark value equals to $valm
+
+if( $ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help')
+{
+help();
+exit;
+}
+sub help {
+  print "\n=== mark_boundary - Distance-Based Boundary Selection ===\n\n";
+  print "PURPOSE:\n";
+  print "  Marks molecules within cutoff distance of atoms with a specific mark value.\n";
+  print "  Creates boundary/buffer regions around already-selected atoms.\n\n";
+  print "USAGE:\n";
+  print "  mark_boundary rcut mark_val mark_val_boundary file.pxyz\n\n";
+  print "PARAMETERS:\n";
+  print "  rcut               - Cutoff distance in Angstroms\n";
+  print "  mark_val           - Mark value of reference atoms to search around\n";
+  print "  mark_val_boundary  - New mark value for molecules within cutoff\n";
+  print "  file.pxyz          - Input .pxyz file (REQUIRED as argument)\n\n";
+  print "INPUT:\n";
+  print "  - .pxyz file specified as argument (NOT via stdin)\n\n";
+  print "OUTPUT:\n";
+  print "  - **MODIFIES INPUT FILE DIRECTLY** - use with caution!\n";
+  print "  - Uses temporary files during processing\n\n";
+  print "DETAILS:\n";
+  print "  - Finds all atoms with mark value 'mark_val'\n";
+  print "  - For each found atom, calls mark_within to mark surrounding molecules\n";
+  print "  - Uses periodic boundary conditions for distance calculations\n";
+  print "  - **WARNING**: This script modifies the input file in-place\n";
+  print "  - Always work with backup copies of important data\n\n";
+  print "EXAMPLES:\n";
+  print "  cp system.pxyz backup.pxyz\n";
+  print "  mark_boundary 3.0 4 2 system.pxyz    # Mark molecules within 3Å of mark-4 atoms\n";
+  print "  mark_boundary 9.0 3 1 system.pxyz    # Mark MM region around QM fitting atoms\n\n";
+  print "WORKFLOW:\n";
+  print "  Typically used to create QM/MM regions:\n";
+  print "  1. Select center molecule (mark 4)\n";
+  print "  2. mark_boundary 3.0 4 2  -> temporary marks around center\n";
+  print "  3. Select fitting molecules from mark 2 -> mark 3\n";
+  print "  4. mark_boundary 9.0 3 1  -> MM region around fitting molecules\n\n";
+}
+
+
+$rcu=$ARGV[0];shift;
+#This is the value marked already
+$valm=$ARGV[0];shift; 
+#This is the value to be used for boundary atom 
+$val=$ARGV[0];shift;
+$filename=$ARGV[0];
+
+@list=`grep -n \" $valm\$\" $filename`;
+for ($i=0;$i<@list;$i++)
+{
+($ind)=split(/:/,$list[$i]);
+$ind=$ind-2;
+$cmd="mark_within $ind $rcu $val $filename > $filename._$$; mv $filename._$$ $filename";
+#print $cmd."\n";
+system("$cmd");
+}

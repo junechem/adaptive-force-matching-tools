@@ -1,0 +1,149 @@
+#!/usr/bin/perl
+
+# gentab_cou - Generate Coulomb potential tables for MD simulations
+#
+# This script generates tabulated Coulomb potential files (.xvg format) for
+# electrostatic interactions in molecular dynamics simulations.
+
+if (@ARGV < 4 || $ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+    print_help();
+    exit(@ARGV < 4 ? 1 : 0);
+}
+
+sub print_help {
+    print << 'EOF';
+
+NAME
+    gentab_cou - Generate Coulomb potential tables for MD simulations
+
+PURPOSE
+    This script generates tabulated Coulomb potential files (.xvg format) for
+    electrostatic interactions in molecular dynamics simulations. It creates
+    distance-potential tables with proper units and formatting for use with
+    GROMACS and other MD packages.
+
+USAGE
+    gentab_cou potential_type charge_product cutoff spacing
+
+PARAMETERS
+    potential_type - Type of Coulomb potential (COUplot, COUgmx)
+    charge_product - Product of charges (q1*q2) or unit charge
+    cutoff         - Maximum distance for table generation (nm)
+    spacing        - Distance spacing/resolution (nm)
+
+INPUT
+    • Potential type specification
+    • Charge product value (elementary charge units)
+    • Grid specifications (cutoff distance, spacing)
+
+OUTPUT
+    • Tabulated potential in GROMACS .xvg format to stdout
+    • 7-column format: distance, potential, force, 0, 0, 0, 0
+    • Proper units: nm for distance, kJ/mol for energy, kJ/mol/nm for force
+    • Short-range cutoff handling (zero potential for r < 10*spacing)
+
+POTENTIAL TYPES
+
+    COUplot - Standard Coulomb potential for analysis/plotting
+    • Uses full electrostatic conversion factor
+    • Formula: V(r) = f_c * q1*q2 / r
+    • f_c = 138.935 kJ·nm/mol (in kJ/mol units)
+    • Suitable for analysis and validation
+    
+    COUgmx - GROMACS-compatible Coulomb potential
+    • Uses unit charges and GROMACS internal scaling
+    • Formula: V(r) = q1*q2 / r (unit scaling)
+    • GROMACS applies its own electrostatic factors
+    • Suitable for direct GROMACS table usage
+
+DETAILS
+    The script works by:
+    1. Parsing potential type and parameters
+    2. Setting appropriate conversion factors based on type
+    3. Generating distance grid from 0 to cutoff
+    4. Calculating Coulomb potential: V(r) = f_c * q1*q2 / r
+    5. Calculating force: F(r) = f_c * q1*q2 / r²
+    6. Applying short-range cutoff (zero for r < 10*spacing)
+    7. Formatting output in GROMACS .xvg format
+    
+    Short-range Handling:
+    - Potential set to zero for distances < 10*spacing
+    - Prevents numerical instability at very short ranges
+    - Maintains smooth table interpolation
+    
+    Unit System:
+    - Distance: nanometers (nm)
+    - Energy: kJ/mol
+    - Force: kJ/mol/nm
+    - Charges: elementary charge units
+
+EXAMPLES
+    gentab_cou COUplot 0.5 1.2 0.001
+        Generate Coulomb table for q1*q2=0.5, cutoff=1.2nm, spacing=0.001nm
+    
+    gentab_cou COUgmx 1.0 1.5 0.002
+        Generate GROMACS-compatible table, unit charges, cutoff=1.5nm
+    
+    gentab_cou COUplot -0.25 1.0 0.0005
+        Generate table for opposite charges (attractive)
+
+INTEGRATION
+    Generated tables integrate with MD simulation workflows:
+    • GROMACS: Via energygrp-table mechanism
+    • Custom MD codes: Standard .xvg format compatibility
+    • AFM workflows: Electrostatic parameter validation
+    • Force field development: Custom charge models
+
+ELECTROSTATIC CONVERSION FACTORS
+    COUplot type uses:
+    f_c = 33.2063713741257 * 4.184 = 138.935 kJ·nm/mol
+    
+    This factor converts:
+    - Charge products (e²) to kJ/mol·nm
+    - Distances (nm) to appropriate energy units
+    - Provides physically meaningful electrostatic energies
+
+OUTPUT FORMAT
+    Standard GROMACS .xvg format:
+    Column 1: Distance (nm)
+    Column 2: Potential energy (kJ/mol)
+    Column 3: Force magnitude (kJ/mol/nm)
+    Columns 4-7: Zeros (reserved for other potential components)
+
+NUMERICAL CONSIDERATIONS
+    • Uses double precision arithmetic
+    • Handles short-range singularity by zeroing near-zero distances
+    • Maintains numerical stability for table interpolation
+    • Proper grid resolution prevents interpolation artifacts
+
+SAFETY FEATURES
+    - Parameter validation (exactly one charge parameter required)
+    - Short-range cutoff prevents singularities
+    - Consistent unit handling
+    - Error messages for incorrect parameter counts
+
+EOF
+}
+
+#unit nm, kj/mol
+$type=$ARGV[0];shift;$pam=$ARGV[0];shift;$rcut=$ARGV[0];shift;$delr=$ARGV[0];shift;
+
+@param=split(/,/,$pam);
+$q1q2=$param[0]; die "One parameter is needed, but @param were passed into the script!" if @param !=1;
+$FcovCou = 33.2063713741257*4.184;
+
+if ($type eq "COUgmx") { $q1q2=1; $FcovCou=1;}
+
+$nbins=int($rcut/$delr)+1;  
+
+for($i=0;$i<=$nbins;$i++)
+{
+    $r=$delr*$i;
+    if ($i<=10) {$h=0.0;$hprime=0.0;}
+
+    else{ 
+      $h = $FcovCou*$q1q2/$r;
+      $hprime=$FcovCou*$q1q2/$r**2;
+    }
+    printf("%20.8e %20.8e %20.8e %20.8e %20.8e %20.8e %20.8e\n", $r,$h,$hprime,0.0,0.0,0.0,0.0);
+}
