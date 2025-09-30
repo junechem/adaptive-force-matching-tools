@@ -1,5 +1,9 @@
 # AFMTools Documentation
 
+> **Note:** This is **NOT** the official AFMTools release. This repository contains enhanced documentation for the AFMTools suite.
+>
+> **For the official AFMTools software release, please visit the Wang Group website.**
+
 Comprehensive documentation for the Adaptive Force Matching (AFM) Tools suite - a collection of scripts and utilities for quantum mechanical/molecular mechanical (QM/MM) simulations, force field development, and molecular dynamics workflows.
 
 ## Overview
