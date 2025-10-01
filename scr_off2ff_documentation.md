@@ -212,60 +212,97 @@ Protocol files define the operations to perform during conversion:
 
 2. **constraint_equation file** - Defines constraint equations:
    ```
-   # num1 atm1 ... numN atmN ... factor
-   1.0 C1 1.0 H1 -1.0 C2 2.0
-   weight_value
-   atm2  charge2
-   atm3  charge3
+   coeff1 atom1 + coeff2 atom2 + ... + coeffN atomN = scaling_factor
+   weight
+   atomX  [charge_X]
+   atomY  [charge_Y]
    ...
    ```
-   - First non-comment line: equation definition
-     - Triplets: coefficient, atom_type (repeated N times)
-     - Last value: scaling factor
-   - Second line: weight for this constraint
-   - Remaining lines: atom types and their charges
+   - **Line 1**: Neutrality/constraint equation in algebraic format
+     - Format: `coeff1 atom1 + coeff2 atom2 + ... = scaling_factor`
+     - Coefficients represent number of each atom type in molecule
+     - Scaling factor: Value to multiply atom charges by (use 0 for neutrality)
+   - **Line 2**: Weight for this constraint equation
+   - **Lines 3+**: Atom types to apply constraint to, with optional charges
+     - Format: `atomname [charge]`
+     - If charge omitted, defaults to 0
+     - Each atom listed generates one constraint equation
 
 **Output**: Constraint equations in CRYOFF format to stdout, errors to stderr
 
 **Format**: `ncharge num1 index1 num2 index2 ... constraint_value weight`
 - `ncharge`: Number of charge products in equation
-- `num1, num2, ...`: Coefficients from equation
+- `num1, num2, ...`: Coefficients from the neutrality equation
 - `index1, index2, ...`: Indices from COU_terms mapping
-- `constraint_value`: Charge × scaling factor
+- `constraint_value`: atom_charge × scaling_factor
 - `weight`: Weight for constraint equation
+
+**How It Works**:
+For each atom listed in lines 3+, generates a constraint equation:
+- Σ(coeff_i × q_atom × q_i) = atom_charge × scaling_factor
+- Where q_atom is the charge of the listed atom
+- And q_i are charges of atoms in the equation
+
+**Use Cases**:
+1. **Neutrality constraints** (scaling_factor = 0, no charges):
+   - Enforces charge neutrality: 1 O0 + 1 C1 + 2 C2 + ... = 0
+   - Each atom type listed must satisfy the neutrality equation
+2. **Charge relationship constraints** (with charges):
+   - Enforces specific interaction energies between atoms
+   - Useful for fitting to QM-derived charge distributions
 
 **Error Handling**:
 - Reports "_not_found_" to stderr for unmapped atom type pairs
 - Validates constraint equation format
-- Checks for proper triplet structure in equations
+- Checks for proper equation structure
 
-**Example Workflow**:
+**Example 1 - Neutrality Constraint**:
 ```bash
-# Create COU terms file
+# COU terms file
 cat > cou_terms.dat << EOF
-C  H
-O  H
-N  C
+C1  C1
+C1  O0
+C1  H1
+O0  O0
+O0  H1
+H1  H1
 EOF
 
-# Create constraint equation
+# Neutrality constraint equation
 cat > constraint.dat << EOF
-# Linear combination: 1.0*C + 1.0*H scaling=2.0
-1.0 C 1.0 H 2.0
-10.0
-H  0.4
-C -0.8
+1 O0 + 1 C1 + 2 C2 + 1 C3 + 1 H0 + 9 H1 = 0
+1E5
+O0
+C1
+H0
 EOF
 
-# Generate constraints
+# Generate neutrality constraints
 ff_gen_charge_constr cou_terms.dat constraint.dat > constraints.out
 ```
 
+**Example 2 - Charge Relationship Constraint**:
+```bash
+# With specific charges and scaling
+cat > constraint_charged.dat << EOF
+1 O0 + 1 C1 + 2 C2 = 2.5
+1.0
+O0  -0.6645
+C1   0.1234
+EOF
+
+# This creates constraints with values:
+# O0: -0.6645 × 2.5 = -1.66125
+# C1:  0.1234 × 2.5 =  0.3085
+ff_gen_charge_constr cou_terms.dat constraint_charged.dat > constraints.out
+```
+
 **Integration with Force Field Fitting**:
-- Constraint equations enforce physical relationships between charges
-- Maintains charge neutrality during optimization
-- Supports complex multi-atom charge relationships
+- Constraint equations enforce physical relationships between charge products
+- Maintains charge neutrality during CRYOFF optimization
+- Supports fitting to QM-derived electrostatic properties
 - Compatible with CRYOFF force field optimization workflow
+- Essential for adaptive force matching with polarizable force fields
 
 ### Specialized Scripts
 
