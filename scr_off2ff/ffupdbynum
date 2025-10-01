@@ -76,6 +76,11 @@ $ind=index($_,"]"); $_=substr($_,$ind+1); ($nrec)=split;
 for ($i=0; $i<$nrec;$i++)
 {
 $_=<>;
+# Skip comment lines starting with ;
+while (/^\s*;/) {
+  print;
+  $_=<>;
+}
 $_ =~ s/^\s+//;
 @input=split(/\s+/,$_);
 

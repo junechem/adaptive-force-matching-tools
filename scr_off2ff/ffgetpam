@@ -70,7 +70,11 @@ if (/\[\s*$secname\s*\]/i) {
 #if (/$secname/) {
   for ($i=0;$i<$recnum;$i++)
   {
-  $_=<FIL>;chomp; 
+  $_=<FIL>;chomp;
+  # Skip comment lines starting with ;
+  while (/^\s*;/) {
+    $_=<FIL>;chomp;
+  }
   }
   chomp;
   $ind1=rindex($_,"#"); $ind2=rindex($_,";"); $ind3=rindex($_,"!");
