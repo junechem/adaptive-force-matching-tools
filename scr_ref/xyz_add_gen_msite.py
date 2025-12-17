@@ -199,9 +199,10 @@ def process_molecule(mol_lines, definitions):
             mz = sum(defn['coefficients'][i] * atom['z'] for i, atom in enumerate(pattern_atoms))
 
             # Format M-site line to match atom line format
-            # Extract other fields from last atom line
-            last_atom_line = mol_lines[atom_line_indices[-1]]
-            parts = last_atom_line.split()
+            # Extract other fields from last atom in pattern
+            last_pattern_atom = pattern_atoms[-1]
+            last_pattern_atom_line = mol_lines[last_pattern_atom['line_index']]
+            parts = last_pattern_atom_line.split()
 
             # Build M-site line with same format: NAME X Y Z (and copy remaining fields)
             if len(parts) >= 8:
@@ -212,8 +213,8 @@ def process_molecule(mol_lines, definitions):
             else:
                 msite_line = f"{defn['msite_name']:<8s} {mx:11.7f} {my:11.7f} {mz:11.7f}\n"
 
-            # Insert after last atom line
-            insert_index = atom_line_indices[-1] + 1
+            # Insert after last atom in pattern (not last atom in molecule)
+            insert_index = last_pattern_atom['line_index'] + 1
             insertions.append((insert_index, msite_line))
 
     # Insert M-sites (reverse order to maintain indices)
