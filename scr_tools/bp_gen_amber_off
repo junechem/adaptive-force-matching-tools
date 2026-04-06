@@ -1,0 +1,80 @@
+#!/usr/bin/perl
+
+if ($ARGV[0] eq '-h' || $ARGV[0] eq '-help' || $ARGV[0] eq '--help' || @ARGV < 2) {
+  help();
+  exit;
+}
+sub help {
+  print "\n=== bp_gen_amber_off - Generate OFF Inter-Potential POW Terms from AMBER LJ Parameters ===\n\n";
+  print "PURPOSE:\n";
+  print "  Reads AMBER-style Lennard-Jones sigma and epsilon parameters and generates\n";
+  print "  OFF-format Inter-Potential entries as LJ POW terms (C12 and C6 coefficients).\n";
+  print "  Applies Lorentz-Berthelot mixing rules for cross-interactions.\n\n";
+  print "USAGE:\n";
+  print "  bp_gen_amber_off pairlist sigma_epsilon_file\n";
+  print "  bp_gen_amber_off pairs.dat sigma_eps.dat > inter_potential.off\n\n";
+  print "PARAMETERS:\n";
+  print "  pairlist           - File listing atom type pairs to generate cross-terms for\n";
+  print "  sigma_epsilon_file - File containing per-atom sigma and epsilon parameters\n\n";
+  print "INPUT:\n";
+  print "  pairlist (two-column format):\n";
+  print "    ATM1  ATM2\n";
+  print "    C     H\n";
+  print "    O     H\n";
+  print "    - One atom type pair per line\n";
+  print "    - Atom names are case-insensitive (converted to uppercase internally)\n\n";
+  print "  sigma_epsilon_file:\n";
+  print "    atomname  [extra columns...]  sigma  epsilon\n";
+  print "    C         ...                 0.340  0.086\n";
+  print "    - First column: atom type name (case-insensitive)\n";
+  print "    - Second-to-last column: sigma (in nm)\n";
+  print "    - Last column: epsilon (in kcal/mol)\n";
+  print "    - Any number of intermediate columns are ignored\n\n";
+  print "OUTPUT:\n";
+  print "  - OFF Inter-Potential section written to stdout\n";
+  print "  - One pair of POW lines per atom type pair:\n";
+  print "    Inter-Potential:\n";
+  print "    ATM1~ATM2:  POW   C12   -12  #C12\n";
+  print "    ATM1~ATM2:  POW   -C6    -6  #C6\n";
+  print "  - C12 in kJ/mol*Ang^12, C6 in kJ/mol*Ang^6\n\n";
+  print "DETAILS:\n";
+  print "  Mixing rules applied:\n";
+  print "    sigma_ij   = 0.5 * (sigma_i + sigma_j)      [arithmetic / Lorentz]\n";
+  print "    epsilon_ij = sqrt(epsilon_i * epsilon_j)     [geometric / Berthelot]\n";
+  print "    C12 = 4 * epsilon_ij * sigma_ij^12 * 10^12 / 4.184\n";
+  print "    C6  = 4 * epsilon_ij * sigma_ij^6  * 10^6  / 4.184\n";
+  print "  Script aborts if any atom type in pairlist is missing from sigma_epsilon_file.\n\n";
+  print "EXAMPLES:\n";
+  print "  bp_gen_amber_off pairs.dat sigma_eps.dat > off_fragment.dat\n";
+  print "  bp_gen_amber_off pairs.dat amber.prm >> existing.off\n\n";
+}
+
+$pairlist = $ARGV[0]; shift; open(PAR,$pairlist) || die "Can not open $pairfile\n";
+$sigma=$ARGV[0];shift; open(PAM,$sigma) || die "Can not open $sigma\n";
+
+#read in sigma epsilon
+while(<PAM>) {
+  chomp;
+  @temp = split;
+  $nam = uc($temp[0]); $sigma = $temp[@temp-2]; $epsilon = $temp[@temp-1];
+  $sig{$nam}=$sigma;
+  $eps{$nam}=$epsilon;
+}
+
+#generate POW12, POW6
+print "Inter-Potential:\n";
+while(<PAR>) {
+chomp;
+($nam1,$nam2)=split; $nam1 = uc($nam1); $nam2 = uc($nam2);
+if (not defined($sig{$nam1}) or not defined($sig{$nam2}) or not defined($eps{$nam1}) or not defined($eps{$nam2})) {
+die  "STOP: At least one of the parameters is not found for $nam1~$nam2!\n";
+}
+$sigmaij=0.5*($sig{$nam1}+$sig{$nam2});
+$epsilonij=sqrt($eps{$nam1}*$eps{$nam2});
+$C12=sprintf("%.3f",4*$epsilonij*$sigmaij**12*10**12/4.184);
+$C6=sprintf("%.3f",4*$epsilonij*$sigmaij**6*10**6/4.184);
+print "$nam1~$nam2:  POW   $C12    -12  #C12 \n";
+print "$nam1~$nam2:  POW   -$C6  -6  #C6\n";
+}
+print "\n";
+
