@@ -19,8 +19,9 @@ NAME
 PURPOSE
     This script adjusts atomic charges to satisfy electroneutrality constraints
     for molecular fragments. It reads initial charges and constraint equations,
-    then redistributes charge excess/deficit uniformly among adjustable atoms
-    to ensure molecular fragments have the correct total charge.
+    then redistributes charge excess/deficit among atoms that have not yet been
+    adjusted by a prior constraint, ensuring molecular fragments have the correct
+    total charge.
 
 USAGE
     adjust_charge charge_file constraint_file
@@ -37,11 +38,16 @@ INPUT
       H1   -0.12500
       O1   -0.75000
     
-    • Constraint file: Contains constraint equations for molecular fragments
-      Format: coeff1 atom1 + coeff2 atom2 + ... = total_charge
+    • Constraint file: Contains constraint equations for molecular fragments,
+      each immediately followed by a picked-atom line for residual correction.
+      Format (pairs of lines):
+        coeff1 atom1 + coeff2 atom2 + ... = total_charge
+        coeff atom
       Example:
-      1 C1 + 4 H1 + 1 O1 = 0.0
-      2 C1 + 6 H1 = 0.0
+        1 C1 + 4 H1 + 1 O1 = 0.0
+        1 H1
+        2 C1 + 6 H1 = 0.0
+        1 C1
 
 OUTPUT
     • Adjusted charges written to stdout
@@ -50,53 +56,72 @@ OUTPUT
     • All constraint equations satisfied
 
 CONSTRAINT FILE FORMAT
-    Each line defines a charge constraint equation:
-    coeff1 atom1 + coeff2 atom2 + coeff3 atom3 = target_charge
-    
+    The constraint file consists of pairs of lines. Each pair is:
+
+    Line 1 (equation):   coeff1 atom1 + coeff2 atom2 + ... = target_charge
+    Line 2 (picked atom): coeff atom
+
     Components:
-    - coeffi: Stoichiometric coefficient (number of atoms)
-    - atomi: Atom type name (must match charge file)
+    - coeffi:       Stoichiometric coefficient (number of atoms of that type)
+    - atomi:        Atom type name (must match charge file)
     - target_charge: Desired total charge for the fragment
-    
+    - picked atom:  Atom used to absorb any residual rounding error after the
+                    main adjustment; only the first two tokens are read
+
+    The equation line and its picked-atom line must be consecutive — no blank
+    lines or comments between them.
+
     Examples:
     1 C + 4 H = 0.0          # Methane neutrality
-    1 N + 3 H = 0.0          # Ammonia neutrality  
-    2 O + 4 H = 0.0          # Water dimer neutrality
+    1 H                       # picked atom
+    1 N + 3 H = 0.0          # Ammonia neutrality
+    1 H                       # picked atom
 
 DETAILS
     The script works by:
-    1. Reading initial atomic charges from charge file
+    1. Reading initial atomic charges from charge file; all atoms start as
+       unadjusted ("F")
     2. Processing each constraint equation sequentially
-    3. Calculating current total charge for each molecular fragment
-    4. Computing charge excess/deficit relative to target
-    5. Distributing excess uniformly among atoms in the fragment
-    6. Updating atomic charges to satisfy constraint
+    3. Calculating current total charge for the fragment (all atoms contribute
+       to the sum regardless of adjustment status)
+    4. Computing deviation relative to target, divided only by the count of
+       unadjusted ("F") atoms in the fragment
+    5. Subtracting the per-atom delta from each unadjusted atom; adjusted atoms
+       are then marked so they are excluded from future constraint adjustments
+    6. Applying a residual correction to the picked atom to absorb any rounding
+       error that remains after the main adjustment
     7. Outputting final adjusted charges
-    
+
     Charge Adjustment Algorithm:
     - For each constraint equation:
-      * Calculate current total: Σ(coeff_i × charge_i)
+      * Calculate current total: Σ(coeff_i × charge_i) over all atoms in fragment
       * Compute deviation: current_total - target_charge
-      * Calculate per-atom adjustment: deviation / total_atoms
-      * Subtract adjustment from each atom: new_charge = old_charge - adjustment
-    
+      * Calculate per-atom delta: deviation / (sum of coefficients of unadjusted atoms only)
+      * Subtract delta from each unadjusted atom: new_charge = old_charge - delta
+      * Mark adjusted atoms so they are not modified by later constraints
+      * Read picked-atom line; absorb any residual rounding error into that atom
+
     Sequential Processing:
     - Constraints processed in file order
-    - Later constraints operate on charges adjusted by earlier ones
-    - Allows hierarchical charge balancing
+    - Later constraints operate on charges already adjusted by earlier ones
+    - Already-adjusted atoms contribute to the fragment sum but do not receive
+      further delta corrections
+    - Allows hierarchical charge balancing (e.g. sub-group constraints first,
+      whole-molecule constraint last)
 
 EXAMPLES
     adjust_charge initial.chg constraints.eq
         Adjust charges using constraint equations
-    
+
     Example charge file (initial.chg):
     C     0.300
     H     0.050
     O    -0.800
-    
+
     Example constraint file (constraints.eq):
     1 C + 4 H + 1 O = 0.0
-    
+    1 H
+
     Output:
     C     0.250
     H     0.000
@@ -111,9 +136,9 @@ INTEGRATION
 
 CHARGE CONSERVATION
     • Total charge is strictly conserved across all fragments
-    • Adjustments distributed uniformly among atoms in each fragment
+    • Adjustments distributed among unadjusted atoms in each fragment only
+    • Residual rounding error absorbed by the picked atom for each constraint
     • Maintains relative charge patterns while satisfying constraints
-    • Preserves chemical reasonableness of charge distributions
 
 NUMERICAL PRECISION
     • Charges formatted to 5 decimal places for output
@@ -128,10 +153,10 @@ CONSTRAINT VALIDATION
     • Allows complex charge balancing schemes
 
 SAFETY FEATURES
-    - Skips comment lines starting with '#'
-    - Handles empty lines gracefully
+    - Skips comment lines starting with '#' in equation file
+    - Handles empty lines gracefully in equation file
+    - Reports an error if residual rounding cannot be absorbed by the picked atom
     - Maintains charge file atom type consistency
-    - Preserves original charges for reference
 
 EOF
 }

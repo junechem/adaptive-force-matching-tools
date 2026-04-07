@@ -250,13 +250,16 @@ Protocol files define conversion operations:
 ### Utility Scripts
 
 #### adjust_charge
-**Purpose**: Adjust charges for electroneutrality
-**Function**: Corrects molecular charges to ensure neutrality
+**Purpose**: Adjust atomic charges to enforce molecular electroneutrality
+**Function**: Reads initial charges and constraint equations, redistributes
+charge excess/deficit among unadjusted atoms to satisfy each constraint, then
+absorbs residual rounding error into a designated picked atom
 **Key Features**:
-- Charge balancing
-- Neutrality enforcement
-- Multiple molecule support
-- Precision control
+- Constraint file uses alternating pairs: equation line then picked-atom line
+- Delta applied only to atoms not yet adjusted by a prior constraint
+- Residual rounding correction applied to the picked atom after each constraint
+- Constraints processed sequentially; later ones operate on already-adjusted charges
+- Error reported if residual cannot be cleanly absorbed by the picked atom
 
 #### checkxvg
 **Purpose**: Validate XVG table files
