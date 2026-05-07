@@ -72,9 +72,9 @@ for ($i=0;$i<$natm;$i++)
   if ($dz>$box3/2)  { $dz=$dz-$box3; }
   if ($dz<-$box3/2) { $dz=$dz+$box3; }
 
-  $xxx[$i]=$dx;
-  $yyy[$i]=$dy;
-  $zzz[$i]=$dz;
+  $xxx[$i]=$dx + $box1/2;
+  $yyy[$i]=$dy + $box2/2;
+  $zzz[$i]=$dz + $box3/2;
 }
 #end recenter
 #unwrap molecule
